@@ -140,6 +140,8 @@ func (b *QueryBuilder) buildCondition(f query.Filter) (string, []any) {
 		return fmt.Sprintf("%s LIKE ?", col), []any{f.Value}
 	case query.OpILike:
 		return fmt.Sprintf("%s LIKE ?", col), []any{f.Value}
+	case query.OpNotLike:
+		return fmt.Sprintf("%s NOT LIKE ?", col), []any{f.Value}
 	case query.OpIsNull:
 		return fmt.Sprintf("%s IS NULL", col), nil
 	case query.OpIsNotNull:
@@ -155,6 +157,15 @@ func (b *QueryBuilder) buildCondition(f query.Filter) (string, []any) {
 			return fmt.Sprintf("%s IN (%s)", col, strings.Join(placeholders, ", ")), slice
 		}
 		return fmt.Sprintf("%s = ?", col), []any{f.Value}
+	case query.OpNin:
+		if slice, ok := f.Value.([]any); ok && len(slice) > 0 {
+			placeholders := make([]string, len(slice))
+			for i := range slice {
+				placeholders[i] = "?"
+			}
+			return fmt.Sprintf("%s NOT IN (%s)", col, strings.Join(placeholders, ", ")), slice
+		}
+		return fmt.Sprintf("%s != ?", col), []any{f.Value}
 	default:
 		return fmt.Sprintf("%s = ?", col), []any{f.Value}
 	}
