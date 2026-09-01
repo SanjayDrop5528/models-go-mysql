@@ -20,9 +20,16 @@ import (
 	_ "github.com/go-sql-driver/mysql"
 )
 
+// MySQLTableItem represents a table discovered in a MySQL database/schema.
+type MySQLTableItem struct {
+	Schema string `json:"schema"`
+	Name   string `json:"name"`
+}
+
 // MySQLAdapter implements the core Adapter interface for MySQL with live network and mock fallback support.
 type MySQLAdapter struct {
 	dsn          string
+	schemas      []string
 	db           *sql.DB
 	ddlGen       *DDLGenerator
 	queryBuilder *QueryBuilder
@@ -38,6 +45,18 @@ func NewMySQLAdapter(dsn string) *MySQLAdapter {
 		queryBuilder: &QueryBuilder{},
 		mockStore:    make(map[string][]map[string]any),
 	}
+}
+
+// WithSchemas configures specific MySQL database schemas/databases for introspection.
+func (a *MySQLAdapter) WithSchemas(schemas ...string) *MySQLAdapter {
+	a.schemas = schemas
+	return a
+}
+
+// WithDatabases configures specific MySQL database schemas/databases for introspection (alias for WithSchemas).
+func (a *MySQLAdapter) WithDatabases(databases ...string) *MySQLAdapter {
+	a.schemas = databases
+	return a
 }
 
 func (a *MySQLAdapter) Name() string {
@@ -196,44 +215,90 @@ func (a *MySQLAdapter) ImportLiveMetadata(ctx context.Context) ([]*model.ModelCo
 	}
 	_ = a.EnsureMetadataTables(ctx)
 
-	query := `
-		SELECT table_name
-		FROM information_schema.tables
-		WHERE table_schema = DATABASE() AND table_type = 'BASE TABLE'
-		ORDER BY table_name;
-	`
-	rows, err := db.QueryContext(ctx, query)
+	var query string
+	var args []any
+
+	if len(a.schemas) == 0 {
+		query = `
+			SELECT table_schema, table_name
+			FROM information_schema.tables
+			WHERE table_schema NOT IN ('information_schema', 'mysql', 'performance_schema', 'sys')
+			  AND table_type = 'BASE TABLE'
+			ORDER BY table_schema, table_name;
+		`
+	} else {
+		placeholders := make([]string, len(a.schemas))
+		for idx, s := range a.schemas {
+			placeholders[idx] = "?"
+			args = append(args, s)
+		}
+		query = fmt.Sprintf(`
+			SELECT table_schema, table_name
+			FROM information_schema.tables
+			WHERE table_schema IN (%s)
+			  AND table_type = 'BASE TABLE'
+			ORDER BY table_schema, table_name;
+		`, strings.Join(placeholders, ", "))
+	}
+
+	rows, err := db.QueryContext(ctx, query, args...)
 	if err != nil {
 		return nil, nil, fmt.Errorf("failed listing MySQL tables: %w", err)
 	}
 	defer rows.Close()
 
-	var tables []string
+	var tables []MySQLTableItem
 	for rows.Next() {
-		var name string
-		if err := rows.Scan(&name); err == nil {
-			tables = append(tables, name)
+		var item MySQLTableItem
+		if err := rows.Scan(&item.Schema, &item.Name); err == nil {
+			tables = append(tables, item)
 		}
 	}
+
+	targetSchemas := "all user databases"
+	if len(a.schemas) > 0 {
+		targetSchemas = fmt.Sprintf("database(s) '%s'", strings.Join(a.schemas, "', '"))
+	}
+	log.Printf("[MySQL] [Import Introspection] Discovered %d live database table(s) across %s (Database: '%s').", len(tables), targetSchemas, a.GetDatabaseName())
 
 	var configs []*model.ModelConfig
 	var fields []*model.DataModel
 
-	for _, tableName := range tables {
+	for _, item := range tables {
+		tableName := item.Name
+		schemaName := item.Schema
+
 		if tableName == "model_configs" || tableName == "data_models" || tableName == "schema_migrations" || tableName == "alembic_version" || tableName == "flyway_schema_history" {
 			continue
 		}
 
 		modelID := tableName
-		modelName := strings.Title(tableName)
+		if len(a.schemas) > 0 {
+			modelID = fmt.Sprintf("%s_%s", schemaName, tableName)
+		}
+
+		modelName := tableName
+		if strings.Contains(tableName, "_") {
+			parts := strings.Split(tableName, "_")
+			for i, p := range parts {
+				parts[i] = strings.Title(p)
+			}
+			modelName = strings.Join(parts, "")
+		} else {
+			modelName = strings.Title(tableName)
+		}
+		if len(a.schemas) > 0 {
+			modelName = strings.Title(schemaName) + modelName
+		}
 
 		cfg := &model.ModelConfig{
 			ID:                   modelID,
 			Name:                 modelName,
 			Table:                tableName,
 			RefName:              tableName,
+			Schema:               schemaName,
 			IsAttributeReference: false,
-			Description:          fmt.Sprintf("Auto-imported from MySQL live table '%s'", tableName),
+			Description:          fmt.Sprintf("Auto-imported from MySQL live table '%s.%s'", schemaName, tableName),
 			Status:               model.ModelConfigStatusActive,
 			Version:              1,
 			CreatedAt:            time.Now(),
@@ -245,11 +310,11 @@ func (a *MySQLAdapter) ImportLiveMetadata(ctx context.Context) ([]*model.ModelCo
 		colQuery := `
 			SELECT column_name, data_type, is_nullable, column_key, column_default
 			FROM information_schema.columns
-			WHERE table_schema = DATABASE() AND table_name = ?;
+			WHERE table_schema = ? AND table_name = ?;
 		`
-		colRows, err := db.QueryContext(ctx, colQuery, tableName)
+		colRows, err := db.QueryContext(ctx, colQuery, schemaName, tableName)
 		if err != nil {
-			log.Printf("[MySQL] ⚠ [Import Warning] Failed querying columns for table '%s': %v", tableName, err)
+			log.Printf("[MySQL] ⚠ [Import Warning] Failed querying columns for table '%s.%s': %v", schemaName, tableName, err)
 			continue
 		}
 		// Fetch Foreign Keys for table
@@ -257,9 +322,9 @@ func (a *MySQLAdapter) ImportLiveMetadata(ctx context.Context) ([]*model.ModelCo
 		fkQuery := `
 			SELECT column_name, referenced_table_name, referenced_column_name
 			FROM information_schema.key_column_usage
-			WHERE table_schema = DATABASE() AND table_name = ? AND referenced_table_name IS NOT NULL;
+			WHERE table_schema = ? AND table_name = ? AND referenced_table_name IS NOT NULL;
 		`
-		if fkRows, err := db.QueryContext(ctx, fkQuery, tableName); err == nil {
+		if fkRows, err := db.QueryContext(ctx, fkQuery, schemaName, tableName); err == nil {
 			for fkRows.Next() {
 				var col, refTable, refCol string
 				if err := fkRows.Scan(&col, &refTable, &refCol); err == nil {

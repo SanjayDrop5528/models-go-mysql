@@ -55,3 +55,10 @@ func TestMySQL_DDL_RenameColumn(t *testing.T) {
 		t.Fatalf("expected:\n%s\ngot:\n%s", expected, stmt)
 	}
 }
+
+func TestMySQL_WithSchemas(t *testing.T) {
+	adapter := mysql.NewMySQLAdapter("root:password@tcp(127.0.0.1:3306)/testdb").WithSchemas("tenant_db", "sales_db")
+	if adapter.Name() != "mysql" {
+		t.Fatalf("expected adapter name mysql, got: %s", adapter.Name())
+	}
+}
