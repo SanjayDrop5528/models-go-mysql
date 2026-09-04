@@ -329,17 +329,8 @@ func (a *MySQLAdapter) ImportLiveMetadata(ctx context.Context) ([]*model.ModelCo
 		}
 
 		modelName := tableName
-		if strings.Contains(tableName, "_") {
-			parts := strings.Split(tableName, "_")
-			for i, p := range parts {
-				parts[i] = strings.Title(p)
-			}
-			modelName = strings.Join(parts, "")
-		} else {
-			modelName = strings.Title(tableName)
-		}
-		if len(a.schemas) > 0 {
-			modelName = strings.Title(schemaName) + modelName
+		if schemaName != "" {
+			modelName = fmt.Sprintf("%s.%s", schemaName, tableName)
 		}
 
 		cfg := &model.ModelConfig{
