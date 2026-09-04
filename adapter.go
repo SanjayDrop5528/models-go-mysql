@@ -786,7 +786,7 @@ func (a *MySQLAdapter) Execute(ctx context.Context, req execution.ExecutionReque
 			},
 		}, nil
 
-	case operation.OpCommand, operation.OpCustom:
+	case operation.OpDDL, operation.OpCommand, operation.OpCustom:
 		db, _ := a.getDB(ctx)
 		if db != nil {
 			_, _ = db.ExecContext(ctx, req.Target)
