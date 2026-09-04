@@ -106,7 +106,14 @@ func (c *MySQLDataSetCompiler) buildSelectSQL(ast *planner.QueryAST, parameteriz
 
 		onCondition := fmt.Sprintf("`%s`.`%s` = `%s`.`%s`", j.FromTable, j.FromField, j.Alias, j.ToField)
 		if j.ConvertString {
-			onCondition = fmt.Sprintf("CAST(`%s`.`%s` AS CHAR) = CAST(`%s`.`%s` AS CHAR)", j.FromTable, j.FromField, j.Alias, j.ToField)
+			switch strings.ToUpper(j.CastMode) {
+			case "FROM_ONLY":
+				onCondition = fmt.Sprintf("CAST(`%s`.`%s` AS CHAR) = `%s`.`%s`", j.FromTable, j.FromField, j.Alias, j.ToField)
+			case "TO_ONLY":
+				onCondition = fmt.Sprintf("`%s`.`%s` = CAST(`%s`.`%s` AS CHAR)", j.FromTable, j.FromField, j.Alias, j.ToField)
+			default:
+				onCondition = fmt.Sprintf("CAST(`%s`.`%s` AS CHAR) = CAST(`%s`.`%s` AS CHAR)", j.FromTable, j.FromField, j.Alias, j.ToField)
+			}
 		}
 
 		// Join filter applied directly to the ON clause
