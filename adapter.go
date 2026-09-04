@@ -207,18 +207,53 @@ func (a *MySQLAdapter) EnsureMetadataTables(ctx context.Context) error {
 	return nil
 }
 
-// ImportLiveMetadata introspects live MySQL database tables and auto-populates model_configs & data_models.
-func (a *MySQLAdapter) ImportLiveMetadata(ctx context.Context) ([]*model.ModelConfig, []*model.DataModel, error) {
+// ListSchemas queries MySQL information_schema for all user databases/schemas.
+func (a *MySQLAdapter) ListSchemas(ctx context.Context) ([]string, error) {
 	db, err := a.getDB(ctx)
 	if err != nil || db == nil {
-		return nil, nil, err
+		return nil, err
 	}
-	_ = a.EnsureMetadataTables(ctx)
+	query := `
+		SELECT schema_name
+		FROM information_schema.schemata
+		WHERE schema_name NOT IN ('information_schema', 'mysql', 'performance_schema', 'sys')
+		ORDER BY schema_name;
+	`
+	rows, err := db.QueryContext(ctx, query)
+	if err != nil {
+		return nil, fmt.Errorf("failed listing MySQL schemas: %w", err)
+	}
+	defer rows.Close()
+
+	var schemas []string
+	for rows.Next() {
+		var s string
+		if err := rows.Scan(&s); err == nil {
+			schemas = append(schemas, s)
+		}
+	}
+	return schemas, nil
+}
+
+// ListTables queries MySQL information_schema for all base tables across schemas.
+func (a *MySQLAdapter) ListTables(ctx context.Context, schemas ...string) ([]MySQLTableItem, error) {
+	db, err := a.getDB(ctx)
+	if err != nil || db == nil {
+		return nil, err
+	}
+
+	var targetSchemas []string
+	for _, s := range schemas {
+		sClean := strings.TrimSpace(s)
+		if sClean != "" && !strings.EqualFold(sClean, "ALL") && sClean != "*" {
+			targetSchemas = append(targetSchemas, sClean)
+		}
+	}
 
 	var query string
 	var args []any
 
-	if len(a.schemas) == 0 {
+	if len(targetSchemas) == 0 {
 		query = `
 			SELECT table_schema, table_name
 			FROM information_schema.tables
@@ -227,8 +262,8 @@ func (a *MySQLAdapter) ImportLiveMetadata(ctx context.Context) ([]*model.ModelCo
 			ORDER BY table_schema, table_name;
 		`
 	} else {
-		placeholders := make([]string, len(a.schemas))
-		for idx, s := range a.schemas {
+		placeholders := make([]string, len(targetSchemas))
+		for idx, s := range targetSchemas {
 			placeholders[idx] = "?"
 			args = append(args, s)
 		}
@@ -243,7 +278,7 @@ func (a *MySQLAdapter) ImportLiveMetadata(ctx context.Context) ([]*model.ModelCo
 
 	rows, err := db.QueryContext(ctx, query, args...)
 	if err != nil {
-		return nil, nil, fmt.Errorf("failed listing MySQL tables: %w", err)
+		return nil, fmt.Errorf("failed listing MySQL tables: %w", err)
 	}
 	defer rows.Close()
 
@@ -254,6 +289,22 @@ func (a *MySQLAdapter) ImportLiveMetadata(ctx context.Context) ([]*model.ModelCo
 			tables = append(tables, item)
 		}
 	}
+	return tables, nil
+}
+
+// ImportLiveMetadata introspects live MySQL database tables and auto-populates model_configs & data_models.
+func (a *MySQLAdapter) ImportLiveMetadata(ctx context.Context) ([]*model.ModelConfig, []*model.DataModel, error) {
+	db, err := a.getDB(ctx)
+	if err != nil || db == nil {
+		return nil, nil, err
+	}
+	_ = a.EnsureMetadataTables(ctx)
+
+	tables, err := a.ListTables(ctx, a.schemas...)
+	if err != nil {
+		return nil, nil, err
+	}
+
 
 	targetSchemas := "all user databases"
 	if len(a.schemas) > 0 {
