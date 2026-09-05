@@ -65,12 +65,21 @@ func (c *MySQLDataSetCompiler) buildSelectSQL(ast *planner.QueryAST, parameteriz
 			expr = cc.Function.MySQLExpression
 			for i, op := range cc.Operands {
 				ph := fmt.Sprintf("{{%d}}", i)
-				opSql := fmt.Sprintf("`%s`.`%s`", op.SourceTable, op.SourceField)
+				var opSql string
+				if op.IsLiteral || op.SourceTable == "" || op.SourceTable == "_LITERAL_" {
+					opSql = op.SourceField
+				} else {
+					opSql = fmt.Sprintf("`%s`.`%s`", op.SourceTable, op.SourceField)
+				}
 				expr = strings.ReplaceAll(expr, ph, opSql)
 			}
 			var allArgs []string
 			for _, op := range cc.Operands {
-				allArgs = append(allArgs, fmt.Sprintf("`%s`.`%s`", op.SourceTable, op.SourceField))
+				if op.IsLiteral || op.SourceTable == "" || op.SourceTable == "_LITERAL_" {
+					allArgs = append(allArgs, op.SourceField)
+				} else {
+					allArgs = append(allArgs, fmt.Sprintf("`%s`.`%s`", op.SourceTable, op.SourceField))
+				}
 			}
 			expr = strings.ReplaceAll(expr, "{{args}}", strings.Join(allArgs, ", "))
 		}
