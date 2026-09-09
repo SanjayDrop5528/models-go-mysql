@@ -24,8 +24,8 @@ func (b *QueryBuilder) BuildSelect(table string, q query.Query) (string, []any) 
 
 	sql := fmt.Sprintf("SELECT %s FROM %s", cols, quoteIdent(table))
 
-	if len(q.Filters) > 0 {
-		whereClause, whereArgs := b.buildWhere(q.Filters, q.LogicalOp)
+	if len(q.Filters) > 0 || len(q.RawWheres) > 0 || len(q.WhereGroups) > 0 {
+		whereClause, whereArgs := b.buildWhere(q)
 		sql += " WHERE " + whereClause
 		args = append(args, whereArgs...)
 	}
@@ -102,19 +102,32 @@ func (b *QueryBuilder) BuildDelete(table string, id any) (string, []any) {
 	return sql, []any{id}
 }
 
-func (b *QueryBuilder) buildWhere(filters []query.Filter, op query.LogicalOp) (string, []any) {
+func (b *QueryBuilder) buildWhere(q query.Query) (string, []any) {
 	var clauses []string
 	var args []any
 
 	joinOp := " AND "
-	if op == query.OpOr {
+	if q.LogicalOp == query.OpOr {
 		joinOp = " OR "
 	}
 
-	for _, f := range filters {
+	for _, f := range q.Filters {
 		clause, fArgs := b.buildCondition(f)
 		clauses = append(clauses, clause)
 		args = append(args, fArgs...)
+	}
+
+	for _, rw := range q.RawWheres {
+		clauses = append(clauses, rw.Query)
+		args = append(args, rw.Args...)
+	}
+
+	for _, wg := range q.WhereGroups {
+		subClause, subArgs := b.buildWhere(wg.Query)
+		if subClause != "" {
+			clauses = append(clauses, fmt.Sprintf("(%s)", subClause))
+			args = append(args, subArgs...)
+		}
 	}
 
 	return strings.Join(clauses, joinOp), args
