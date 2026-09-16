@@ -1,3 +1,12 @@
+// Package mysql provides dataset compilation logic for MySQL databases.
+//
+// Usage:
+// This file transforms an engine QueryAST and DataSet definition into dialect-specific MySQL
+// SELECT queries, stored procedures, or stored functions returning JSON. It supports:
+// 1. Backtick identifier quoting (`table`.`field`).
+// 2. Table joins (INNER, LEFT, RIGHT).
+// 3. Custom column formulas and MySQL built-in calculation/aggregation functions.
+// 4. Runtime parameter substitution and routine DDL generation (CREATE PROCEDURE / FUNCTION).
 package mysql
 
 import (
@@ -16,11 +25,32 @@ import (
 type MySQLDataSetCompiler struct{}
 
 // NewMySQLDataSetCompiler creates a new MySQL dataset compiler instance.
+//
+// Purpose:
+// Instantiates a MySQLDataSetCompiler capable of translating an engine QueryAST into MySQL SQL.
+//
+// Where it is used:
+// Used in MySQLAdapter.CompileDataSet, MySQLAdapter.DataSetCompiler, and can be used directly
+// in test suites or engine service registrations.
+//
+// When can it be used:
+// Can be used during application initialization or adapter registration to provide MySQL compilation support.
 func NewMySQLDataSetCompiler() *MySQLDataSetCompiler {
 	return &MySQLDataSetCompiler{}
 }
 
-// Compile compiles the QueryAST into MySQL SQL.
+// Compile compiles the QueryAST into MySQL SQL and stored DDL.
+//
+// Purpose:
+// Compiles an engine QueryAST into an executable MySQL SQL query, a reference parameterized pipeline,
+// and a routine DDL statement (procedure or function) depending on the dataset's SaveMode.
+//
+// Where it is used:
+// Invoked by DataSetService.Preview, DataSetService.Save, and MySQLAdapter.CompileDataSet.
+//
+// When can it be used:
+// Can be used whenever a DataSet definition has been validated and planned and needs to be executed
+// or persisted in a MySQL database.
 func (c *MySQLDataSetCompiler) Compile(ctx context.Context, ast *planner.QueryAST, ds *domain.DataSet) (*compiler.CompiledPipeline, error) {
 	if ast == nil {
 		return nil, domain.NewError(domain.ErrPipelineCompilationFailed, "cannot compile nil AST")
@@ -47,6 +77,17 @@ func (c *MySQLDataSetCompiler) Compile(ctx context.Context, ast *planner.QueryAS
 	}, nil
 }
 
+// buildSelectSQL constructs the MySQL SELECT query.
+//
+// Purpose:
+// Builds the complete MySQL SQL query string including backtick-quoted projections, calculations, JOIN clauses,
+// ON filters, WHERE filters, GROUP BY groupings, and HAVING clauses.
+//
+// Where it is used:
+// Called internally by Compile to generate executable queries, parameter-templated pipelines, and routine bodies.
+//
+// When can it be used:
+// Can be used during compilation whenever a QueryAST must be serialized into a MySQL SELECT statement.
 func (c *MySQLDataSetCompiler) buildSelectSQL(ast *planner.QueryAST, parameterized, isRoutine bool) string {
 	var selectCols []string
 
@@ -198,6 +239,16 @@ func (c *MySQLDataSetCompiler) buildSelectSQL(ast *planner.QueryAST, parameteriz
 	return sql + ";"
 }
 
+// renderMySQLFunctionExpression renders template strings by inserting positional and collective arguments.
+//
+// Purpose:
+// Replaces {{0}}, {{1}}, and {{args}} template tokens with formatted MySQL SQL expressions.
+//
+// Where it is used:
+// Used in buildMySQLFunctionExpression when an expression formula template is provided.
+//
+// When can it be used:
+// Can be used whenever an aggregate or custom column uses a custom template pattern in MySQL.
 func renderMySQLFunctionExpression(template string, operands []planner.ASTOperand) string {
 	expr := template
 	var allArgs []string
@@ -209,6 +260,16 @@ func renderMySQLFunctionExpression(template string, operands []planner.ASTOperan
 	return strings.ReplaceAll(expr, "{{args}}", strings.Join(allArgs, ", "))
 }
 
+// buildMySQLFunctionExpression maps abstract function names into MySQL SQL expressions.
+//
+// Purpose:
+// Translates calculations, string manipulations, date operations, and aggregations into valid MySQL SQL syntax.
+//
+// Where it is used:
+// Used in buildSelectSQL when compiling SELECT projections, calculations, and aggregations.
+//
+// When can it be used:
+// Can be used whenever compiling calculated or aggregated columns for MySQL.
 func buildMySQLFunctionExpression(fnName string, operands []planner.ASTOperand) string {
 	fn := strings.ToUpper(strings.TrimSpace(fnName))
 	first := "*"
@@ -357,6 +418,16 @@ func buildMySQLFunctionExpression(fnName string, operands []planner.ASTOperand) 
 	}
 }
 
+// buildMySQLBinaryExpression builds a binary arithmetic expression for MySQL.
+//
+// Purpose:
+// Combines two operands with an arithmetic operator inside parentheses for MySQL SQL queries.
+//
+// Where it is used:
+// Used in buildMySQLFunctionExpression for ADD, SUBTRACT, MULTIPLY, and DIVIDE operations.
+//
+// When can it be used:
+// Can be used whenever an infix binary arithmetic operation is compiled for MySQL.
 func buildMySQLBinaryExpression(operands []planner.ASTOperand, op string) string {
 	if len(operands) < 2 {
 		return ""
@@ -364,6 +435,16 @@ func buildMySQLBinaryExpression(operands []planner.ASTOperand, op string) string
 	return fmt.Sprintf("(%s %s %s)", formatMySQLOperand(operands[0]), op, formatMySQLOperand(operands[1]))
 }
 
+// formatMySQLOperands formats a slice of ASTOperands into MySQL SQL strings.
+//
+// Purpose:
+// Converts multiple abstract operands into their formatted MySQL string representations.
+//
+// Where it is used:
+// In buildMySQLFunctionExpression when formatting argument lists for variadic functions like CONCAT and COALESCE.
+//
+// When can it be used:
+// Can be used whenever a function requires an array of formatted operands.
 func formatMySQLOperands(operands []planner.ASTOperand) []string {
 	args := make([]string, 0, len(operands))
 	for _, op := range operands {
@@ -372,6 +453,16 @@ func formatMySQLOperands(operands []planner.ASTOperand) []string {
 	return args
 }
 
+// formatMySQLOperand formats an individual ASTOperand into a backtick-quoted column or literal.
+//
+// Purpose:
+// Formats an operand as an identifier (`table`.`field`) or a properly escaped SQL literal string/number.
+//
+// Where it is used:
+// Used throughout expression and projection compilation in MySQL dataset compiler.
+//
+// When can it be used:
+// Can be used whenever an individual operand must be emitted into a MySQL SQL statement.
 func formatMySQLOperand(op planner.ASTOperand) string {
 	if op.SourceTable == "" || op.SourceTable == "_LITERAL_" || op.SourceTable == "CALC" {
 		valStr := fmt.Sprintf("%v", op.LiteralVal)
@@ -389,6 +480,16 @@ func formatMySQLOperand(op planner.ASTOperand) string {
 	return fmt.Sprintf("`%s`.`%s`", op.SourceTable, op.SourceField)
 }
 
+// isNumericString checks whether a string can be parsed as a floating-point or integer number.
+//
+// Purpose:
+// Tests whether a string represents a valid numeric value to determine quoting requirements.
+//
+// Where it is used:
+// In formatMySQLOperand to determine whether a literal value requires quotation marks.
+//
+// When can it be used:
+// Can be used whenever determining if a literal string is numeric in SQL.
 func isNumericString(s string) bool {
 	s = strings.TrimSpace(s)
 	if s == "" {
@@ -398,6 +499,16 @@ func isNumericString(s string) bool {
 	return err == nil
 }
 
+// buildDDL generates MySQL routine statements for PROCEDURE or FUNCTION save modes.
+//
+// Purpose:
+// Generates CREATE PROCEDURE or CREATE FUNCTION statements to persist the dataset query logic inside MySQL.
+//
+// Where it is used:
+// Used in Compile when SaveMode is SaveModeProcedure or SaveModeFunction.
+//
+// When can it be used:
+// Can be used whenever persisting a dataset query as a callable MySQL stored routine.
 func (c *MySQLDataSetCompiler) buildDDL(procName, querySQL string, params []domain.FilterParam, mode domain.SaveMode) string {
 	if mode == domain.SaveModeQuery {
 		return ""
@@ -444,11 +555,29 @@ END;`, cleanName, cleanName, strings.Join(paramDefs, ", "), procName, querySQL)
 }
 
 // CompileDataSet compiles QueryAST into MySQL SQL.
+//
+// Purpose:
+// Compiles a QueryAST and DataSet definition into a MySQL-specific CompiledPipeline.
+//
+// Where it is used:
+// Invoked directly on MySQLAdapter or by external callers requiring MySQL SQL compilation.
+//
+// When can it be used:
+// Can be used whenever an application holds a MySQLAdapter instance and needs to compile a dataset.
 func (a *MySQLAdapter) CompileDataSet(ctx context.Context, ast *planner.QueryAST, ds *domain.DataSet) (*compiler.CompiledPipeline, error) {
 	return NewMySQLDataSetCompiler().Compile(ctx, ast, ds)
 }
 
 // DataSetCompiler returns the adapter.DataSetCompiler instance.
+//
+// Purpose:
+// Returns the generic adapter.DataSetCompiler interface wrapper for registering with DataSetService.
+//
+// Where it is used:
+// In application bootstrap and dependency injection (e.g. service.RegisterCompiler("mysql", myAdapter.DataSetCompiler())).
+//
+// When can it be used:
+// Can be used when initializing the dataset engine and registering the MySQL adapter compiler.
 func (a *MySQLAdapter) DataSetCompiler() adapter.DataSetCompiler {
 	return &genericCompilerWrapper{c: NewMySQLDataSetCompiler()}
 }
@@ -457,6 +586,16 @@ type genericCompilerWrapper struct {
 	c compiler.DataSetCompiler
 }
 
+// Compile adapts generic untyped arguments to typed AST and DataSet compiler calls.
+//
+// Purpose:
+// Unpacks generic any interface values into *planner.QueryAST and *domain.DataSet and delegates to the underlying compiler.
+//
+// Where it is used:
+// Called dynamically by DataSetService.Preview and DataSetService.Save via the adapter.DataSetCompiler interface.
+//
+// When can it be used:
+// Can be used whenever compiling across module boundaries where interface{} decoupling is employed.
 func (w *genericCompilerWrapper) Compile(ctx context.Context, ast any, ds any) (any, error) {
 	qAst, _ := ast.(*planner.QueryAST)
 	dSet, _ := ds.(*domain.DataSet)
