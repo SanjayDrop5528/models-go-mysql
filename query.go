@@ -1,15 +1,34 @@
+// Package mysql implements the MySQL storage adapter, query generator,
+// DDL schema migrator, table introspector, and Dataset Studio compiler.
+//
+// File: query.go
+// Usage:
+//   This file implements the MySQL QueryBuilder, translating universal query.Query
+//   specifications into parameterized MySQL SQL queries with '?' placeholders.
+//   It handles SELECT projection, backtick quoting, WHERE filters, ORDER BY, LIMIT/OFFSET,
+//   and CRUD statements (INSERT, UPDATE, DELETE).
 package mysql
 
 import (
 	"fmt"
-	"github.com/SanjayDrop5528/models-go-engine/query"
 	"strings"
+
+	"github.com/SanjayDrop5528/models-go-engine/query"
 )
 
 // QueryBuilder compiles query.Query into parameterized MySQL SQL queries with '?' placeholders.
 type QueryBuilder struct{}
 
 // BuildSelect compiles a SELECT query, returning the query string and argument slice.
+//
+// Purpose:
+//   Constructs a parameterized SELECT query matching column selections, filters, sorts, and limits.
+//
+// Where it is used:
+//   - Called by MySQLAdapter.Find when querying records.
+//
+// When can it be used:
+//   - When translating a generic query.Query into MySQL SELECT SQL.
 func (b *QueryBuilder) BuildSelect(table string, q query.Query) (string, []any) {
 	var args []any
 
@@ -53,6 +72,15 @@ func (b *QueryBuilder) BuildSelect(table string, q query.Query) (string, []any) 
 }
 
 // BuildInsert compiles an INSERT statement.
+//
+// Purpose:
+//   Constructs a parameterized INSERT INTO statement with '?' values.
+//
+// Where it is used:
+//   - Called by MySQLAdapter.Create.
+//
+// When can it be used:
+//   - When inserting a new record into a MySQL table.
 func (b *QueryBuilder) BuildInsert(table string, data map[string]any) (string, []any) {
 	var cols []string
 	var placeholders []string
@@ -74,6 +102,15 @@ func (b *QueryBuilder) BuildInsert(table string, data map[string]any) (string, [
 }
 
 // BuildUpdate compiles an UPDATE statement by ID.
+//
+// Purpose:
+//   Constructs a parameterized UPDATE statement modifying non-primary key columns for a specified ID.
+//
+// Where it is used:
+//   - Called by MySQLAdapter.Update and Patch.
+//
+// When can it be used:
+//   - When updating column values on an existing record.
 func (b *QueryBuilder) BuildUpdate(table string, id any, data map[string]any) (string, []any) {
 	var setClauses []string
 	var args []any
@@ -97,11 +134,30 @@ func (b *QueryBuilder) BuildUpdate(table string, id any, data map[string]any) (s
 }
 
 // BuildDelete compiles a DELETE statement by ID.
+//
+// Purpose:
+//   Constructs a parameterized DELETE statement targeting a record by primary key ID.
+//
+// Where it is used:
+//   - Called by MySQLAdapter.Delete.
+//
+// When can it be used:
+//   - When removing a record by ID.
 func (b *QueryBuilder) BuildDelete(table string, id any) (string, []any) {
 	sql := fmt.Sprintf("DELETE FROM %s WHERE `id` = ?;", quoteIdent(table))
 	return sql, []any{id}
 }
 
+// buildWhere constructs the WHERE clause and extracts positional parameter arguments.
+//
+// Purpose:
+//   Recursively traverses filters, raw expressions, and nested condition groups joining by AND or OR.
+//
+// Where it is used:
+//   - Internal helper for BuildSelect and count queries.
+//
+// When can it be used:
+//   - When converting structured filter groups into SQL WHERE conditions.
 func (b *QueryBuilder) buildWhere(q query.Query) (string, []any) {
 	var clauses []string
 	var args []any
@@ -133,6 +189,16 @@ func (b *QueryBuilder) buildWhere(q query.Query) (string, []any) {
 	return strings.Join(clauses, joinOp), args
 }
 
+// buildCondition converts an individual query.Filter into a MySQL condition clause.
+//
+// Purpose:
+//   Maps abstract operators (OpEq, OpGt, OpLike, OpIn, OpBetween, etc.) to SQL fragments with '?' placeholders.
+//
+// Where it is used:
+//   - Called by buildWhere for each filter criterion.
+//
+// When can it be used:
+//   - When formatting an individual column predicate.
 func (b *QueryBuilder) buildCondition(f query.Filter) (string, []any) {
 	col := quoteIdent(f.Field)
 

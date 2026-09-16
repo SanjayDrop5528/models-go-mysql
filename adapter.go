@@ -1,3 +1,13 @@
+// Package mysql implements the MySQL storage adapter, query generator,
+// DDL schema migrator, table introspector, and Dataset Studio compiler.
+//
+// File: adapter.go
+// Usage:
+//   This file implements the MySQLAdapter, fulfilling the universal adapter.Adapter
+//   and adapter.DataSetAdapter interfaces. It supports live database execution via
+//   github.com/go-sql-driver/mysql as well as an in-memory mock fallback store.
+//   It manages connection pooling, schema migrations, CRUD queries, live metadata introspection,
+//   and stored routine / SQL execution.
 package mysql
 
 import (
@@ -5,6 +15,11 @@ import (
 	"database/sql"
 	"fmt"
 	"log"
+	"net/url"
+	"strings"
+	"sync"
+	"time"
+
 	"github.com/SanjayDrop5528/models-go-engine/adapter"
 	"github.com/SanjayDrop5528/models-go-engine/execution"
 	"github.com/SanjayDrop5528/models-go-engine/model"
@@ -12,10 +27,6 @@ import (
 	"github.com/SanjayDrop5528/models-go-engine/plan"
 	"github.com/SanjayDrop5528/models-go-engine/query"
 	"github.com/SanjayDrop5528/models-go-engine/schema"
-	"net/url"
-	"strings"
-	"sync"
-	"time"
 
 	_ "github.com/go-sql-driver/mysql"
 )
@@ -38,6 +49,15 @@ type MySQLAdapter struct {
 }
 
 // NewMySQLAdapter creates a new MySQL adapter instance.
+//
+// Purpose:
+//   Initializes a MySQLAdapter configured with DSN connection parameters, DDL generator, and query builder.
+//
+// Where it is used:
+//   - Instantiated during server startup, integration tests, and multi-database configurations.
+//
+// When can it be used:
+//   - When connecting the engine or Dataset Studio to a MySQL database instance.
 func NewMySQLAdapter(dsn string) *MySQLAdapter {
 	return &MySQLAdapter{
 		dsn:          dsn,
@@ -48,19 +68,71 @@ func NewMySQLAdapter(dsn string) *MySQLAdapter {
 }
 
 // WithSchemas configures specific MySQL database schemas/databases for introspection.
+//
+// Purpose:
+//   Restricts or expands schema introspection to the designated MySQL database schemas.
+//
+// Where it is used:
+//   - Chained during adapter initialization when multi-schema reverse engineering is needed.
+//
+// When can it be used:
+//   - When inspecting tables across multiple MySQL databases or filtering out system schemas.
 func (a *MySQLAdapter) WithSchemas(schemas ...string) *MySQLAdapter {
 	a.schemas = schemas
 	return a
 }
 
 // WithDatabases configures specific MySQL database schemas/databases for introspection (alias for WithSchemas).
+//
+// Purpose:
+//   Convenience alias for WithSchemas to match MySQL database naming conventions.
+//
+// Where it is used:
+//   - Chained during adapter configuration.
+//
+// When can it be used:
+//   - When setting target databases for schema inspection.
 func (a *MySQLAdapter) WithDatabases(databases ...string) *MySQLAdapter {
 	a.schemas = databases
 	return a
 }
 
+// Name returns the driver identifier string for MySQL.
+//
+// Purpose:
+//   Identifies the adapter as "mysql".
+//
+// Where it is used:
+//   - In engine registration, routing, and logging.
+//
+// When can it be used:
+//   - Whenever querying the adapter driver name.
 func (a *MySQLAdapter) Name() string {
 	return "mysql"
+}
+
+// Capabilities returns the MySQL adapter capabilities matrix.
+//
+// Purpose:
+//   Reports supported features (transactions, DDL, procedures, functions, JSON validation, save modes) for MySQL.
+//
+// Where it is used:
+//   - In DatasetService, validation engines, and capability matrix inspections.
+//
+// When can it be used:
+//   - At runtime whenever callers need to determine the capability profile of the MySQL adapter.
+func (a *MySQLAdapter) Capabilities() adapter.Capabilities {
+	return adapter.Capabilities{
+		Category:                    adapter.StorageCategoryRelational,
+		SupportsTransactions:        true,
+		SupportsDDLMigration:        true,
+		SupportsProcedures:          true,
+		SupportsFunctions:           true,
+		SupportsAggregationPipeline: false,
+		SupportsJSONValidation:      true,
+		SupportsIndexes:             true,
+		SupportedSaveModes:          []string{"PROCEDURE", "FUNCTION", "QUERY"},
+	}
 }
 
 // NativeClient returns the underlying *sql.DB connection handle.

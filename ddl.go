@@ -1,21 +1,48 @@
+// Package mysql implements the MySQL storage adapter, query generator,
+// DDL schema migrator, table introspector, and Dataset Studio compiler.
+//
+// File: ddl.go
+// Usage:
+//   This file implements the MySQL DDLGenerator, which converts abstract SchemaOperations
+//   (OpCreateTable, OpDropTable, OpAddColumn, OpDropColumn, OpModifyColumn, etc.) into
+//   valid MySQL DDL statements with backtick identifier quoting and MySQL engine defaults (InnoDB, utf8mb4).
 package mysql
 
 import (
 	"fmt"
+	"strings"
+
 	"github.com/SanjayDrop5528/models-go-engine/diff"
 	"github.com/SanjayDrop5528/models-go-engine/schema"
-	"strings"
 )
 
 // DDLGenerator compiles core SchemaOperations into MySQL DDL statements.
 type DDLGenerator struct{}
 
 // NewDDLGenerator creates a new MySQL DDL compiler.
+//
+// Purpose:
+//   Initializes a MySQL DDLGenerator instance.
+//
+// Where it is used:
+//   - Instantiated in MySQLAdapter.ApplySchemaChange and PreviewSchemaChange.
+//
+// When can it be used:
+//   - When translating schema migration diff plans into executable MySQL DDL statements.
 func NewDDLGenerator() *DDLGenerator {
 	return &DDLGenerator{}
 }
 
 // GenerateStatements transforms SchemaOperations into MySQL DDL statements.
+//
+// Purpose:
+//   Iterates through planned schema operations and generates a sequence of MySQL DDL queries.
+//
+// Where it is used:
+//   - Called by MySQLAdapter during schema migrations and previews.
+//
+// When can it be used:
+//   - When executing or previewing DDL operations against a MySQL database.
 func (g *DDLGenerator) GenerateStatements(ops []diff.SchemaOperation) ([]string, error) {
 	statements := make([]string, 0, len(ops))
 
@@ -33,6 +60,15 @@ func (g *DDLGenerator) GenerateStatements(ops []diff.SchemaOperation) ([]string,
 }
 
 // GenerateStatement compiles an individual operation for MySQL.
+//
+// Purpose:
+//   Translates a single schema operation (table creation, column drop, index add) into MySQL SQL.
+//
+// Where it is used:
+//   - Called by GenerateStatements for each planned operation.
+//
+// When can it be used:
+//   - When generating SQL for an atomic schema alteration.
 func (g *DDLGenerator) GenerateStatement(op diff.SchemaOperation) (string, error) {
 	table := quoteIdent(op.TargetTable)
 
