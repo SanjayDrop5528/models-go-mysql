@@ -62,26 +62,13 @@ func (c *MySQLDataSetCompiler) buildSelectSQL(ast *planner.QueryAST, parameteriz
 	for _, cc := range ast.CustomColumns {
 		expr := cc.Expression
 		if cc.Function != nil && cc.Function.MySQLExpression != "" {
-			expr = cc.Function.MySQLExpression
-			for i, op := range cc.Operands {
-				ph := fmt.Sprintf("{{%d}}", i)
-				var opSql string
-				if op.IsLiteral || op.SourceTable == "" || op.SourceTable == "_LITERAL_" {
-					opSql = op.SourceField
-				} else {
-					opSql = fmt.Sprintf("`%s`.`%s`", op.SourceTable, op.SourceField)
-				}
-				expr = strings.ReplaceAll(expr, ph, opSql)
-			}
-			var allArgs []string
-			for _, op := range cc.Operands {
-				if op.IsLiteral || op.SourceTable == "" || op.SourceTable == "_LITERAL_" {
-					allArgs = append(allArgs, op.SourceField)
-				} else {
-					allArgs = append(allArgs, fmt.Sprintf("`%s`.`%s`", op.SourceTable, op.SourceField))
-				}
-			}
-			expr = strings.ReplaceAll(expr, "{{args}}", strings.Join(allArgs, ", "))
+			expr = renderMySQLFunctionExpression(cc.Function.MySQLExpression, cc.Operands)
+		} else if expr == "" && cc.Function != nil {
+			expr = buildMySQLFunctionExpression(cc.Function.Name, cc.Operands)
+		} else if expr == "" && cc.IsAggregate {
+			expr = buildMySQLFunctionExpression(cc.FunctionName, cc.Operands)
+		} else if expr == "" && cc.FunctionName != "" {
+			expr = buildMySQLFunctionExpression(cc.FunctionName, cc.Operands)
 		}
 
 		if expr != "" {
@@ -188,6 +175,89 @@ func (c *MySQLDataSetCompiler) buildSelectSQL(ast *planner.QueryAST, parameteriz
 	}
 
 	return sql + ";"
+}
+
+func renderMySQLFunctionExpression(template string, operands []planner.ASTOperand) string {
+	expr := template
+	var allArgs []string
+	for i, op := range operands {
+		opSQL := formatMySQLOperand(op)
+		expr = strings.ReplaceAll(expr, fmt.Sprintf("{{%d}}", i), opSQL)
+		allArgs = append(allArgs, opSQL)
+	}
+	return strings.ReplaceAll(expr, "{{args}}", strings.Join(allArgs, ", "))
+}
+
+func buildMySQLFunctionExpression(fnName string, operands []planner.ASTOperand) string {
+	fn := strings.ToUpper(strings.TrimSpace(fnName))
+	first := "*"
+	if len(operands) > 0 {
+		first = formatMySQLOperand(operands[0])
+	}
+	switch fn {
+	case "COUNT_ALL", "COUNT(*)":
+		return "COUNT(*)"
+	case "COUNT":
+		if first == "" {
+			first = "*"
+		}
+		return fmt.Sprintf("COUNT(%s)", first)
+	case "COUNT_DISTINCT":
+		return fmt.Sprintf("COUNT(DISTINCT %s)", first)
+	case "SUM", "AVG", "MIN", "MAX", "ABS", "SQRT":
+		return fmt.Sprintf("%s(%s)", fn, first)
+	case "ADD":
+		return buildMySQLBinaryExpression(operands, "+")
+	case "SUBTRACT":
+		return buildMySQLBinaryExpression(operands, "-")
+	case "MULTIPLY":
+		return buildMySQLBinaryExpression(operands, "*")
+	case "DIVIDE":
+		if len(operands) < 2 {
+			return ""
+		}
+		return fmt.Sprintf("(%s / NULLIF(%s, 0))", formatMySQLOperand(operands[0]), formatMySQLOperand(operands[1]))
+	case "CONCAT":
+		return fmt.Sprintf("CONCAT(%s)", strings.Join(formatMySQLOperands(operands), ", "))
+	case "CONCAT_WS":
+		args := formatMySQLOperands(operands)
+		if len(args) == 0 {
+			return ""
+		}
+		return fmt.Sprintf("CONCAT_WS(%s)", strings.Join(args, ", "))
+	case "UPPER", "LOWER", "TRIM", "LENGTH":
+		return fmt.Sprintf("%s(%s)", fn, first)
+	case "YEAR", "MONTH", "DAY":
+		return fmt.Sprintf("%s(%s)", fn, first)
+	case "NOW":
+		return "NOW()"
+	case "CURRENT_DATE":
+		return "CURDATE()"
+	default:
+		return ""
+	}
+}
+
+func buildMySQLBinaryExpression(operands []planner.ASTOperand, op string) string {
+	if len(operands) < 2 {
+		return ""
+	}
+	return fmt.Sprintf("(%s %s %s)", formatMySQLOperand(operands[0]), op, formatMySQLOperand(operands[1]))
+}
+
+func formatMySQLOperands(operands []planner.ASTOperand) []string {
+	args := make([]string, 0, len(operands))
+	for _, op := range operands {
+		args = append(args, formatMySQLOperand(op))
+	}
+	return args
+}
+
+func formatMySQLOperand(op planner.ASTOperand) string {
+	if op.IsLiteral || op.SourceTable == "" || op.SourceTable == "_LITERAL_" {
+		return fmt.Sprintf("%v", op.LiteralVal)
+	}
+	return fmt.Sprintf("`%s`.`%s`", op.SourceTable, op.SourceField)
 }
 
 func (c *MySQLDataSetCompiler) buildDDL(procName, querySQL string, params []domain.FilterParam, mode domain.SaveMode) string {
