@@ -403,6 +403,8 @@ func (a *MySQLAdapter) ImportLiveMetadata(ctx context.Context) ([]*model.ModelCo
 		modelName := tableName
 		if schemaName != "" {
 			modelName = fmt.Sprintf("%s.%s", schemaName, tableName)
+		} else if dbName := a.GetDatabaseName(); dbName != "" && dbName != "in-memory mock" {
+			modelName = fmt.Sprintf("%s.%s", dbName, tableName)
 		}
 
 		cfg := &model.ModelConfig{

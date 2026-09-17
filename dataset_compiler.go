@@ -432,7 +432,8 @@ func buildMySQLBinaryExpression(operands []planner.ASTOperand, op string) string
 	if len(operands) < 2 {
 		return ""
 	}
-	return fmt.Sprintf("(%s %s %s)", formatMySQLOperand(operands[0]), op, formatMySQLOperand(operands[1]))
+	formatted := formatMySQLOperands(operands)
+	return fmt.Sprintf("(%s)", strings.Join(formatted, fmt.Sprintf(" %s ", op)))
 }
 
 // formatMySQLOperands formats a slice of ASTOperands into MySQL SQL strings.
