@@ -10,9 +10,22 @@ import (
 	"github.com/SanjayDrop5528/models-go-engine/dataset/resolver"
 	"github.com/SanjayDrop5528/models-go-engine/diff"
 	"github.com/SanjayDrop5528/models-go-engine/model"
+	"github.com/SanjayDrop5528/models-go-engine/query"
 	"github.com/SanjayDrop5528/models-go-engine/schema"
 	"github.com/SanjayDrop5528/models-go-mysql"
 )
+
+func TestBuildCountRemovesPagination(t *testing.T) {
+	builder := &mysql.QueryBuilder{}
+	q := query.New().Where("status", query.OpEq, "active").OrderBy("created_at", query.SortDesc).LimitOffset(10, 20)
+	sqlText, args := builder.BuildCount("orders", q)
+	if strings.Contains(sqlText, " LIMIT ") || strings.Contains(sqlText, " OFFSET ") || strings.Contains(sqlText, " ORDER BY ") {
+		t.Fatalf("count query must not contain pagination or sorting: %s", sqlText)
+	}
+	if !strings.HasPrefix(sqlText, "SELECT COUNT(*) FROM (") || len(args) != 1 || args[0] != "active" {
+		t.Fatalf("unexpected count query: %s args=%v", sqlText, args)
+	}
+}
 
 func TestMySQL_DDL_AddColumn(t *testing.T) {
 	gen := mysql.NewDDLGenerator()
@@ -281,4 +294,3 @@ func TestMySQLDataSetCompiler_AllCustomAndAggregateFunctions(t *testing.T) {
 		}
 	}
 }
-

@@ -3,11 +3,12 @@
 //
 // File: adapter.go
 // Usage:
-//   This file implements the MySQLAdapter, fulfilling the universal adapter.Adapter
-//   and adapter.DataSetAdapter interfaces. It supports live database execution via
-//   github.com/go-sql-driver/mysql as well as an in-memory mock fallback store.
-//   It manages connection pooling, schema migrations, CRUD queries, live metadata introspection,
-//   and stored routine / SQL execution.
+//
+//	This file implements the MySQLAdapter, fulfilling the universal adapter.Adapter
+//	and adapter.DataSetAdapter interfaces. It supports live database execution via
+//	github.com/go-sql-driver/mysql as well as an in-memory mock fallback store.
+//	It manages connection pooling, schema migrations, CRUD queries, live metadata introspection,
+//	and stored routine / SQL execution.
 package mysql
 
 import (
@@ -16,6 +17,7 @@ import (
 	"fmt"
 	"log"
 	"net/url"
+	"reflect"
 	"strings"
 	"sync"
 	"time"
@@ -51,7 +53,8 @@ type MySQLAdapter struct {
 // NewMySQLAdapter creates a new MySQL adapter instance.
 //
 // Purpose:
-//   Initializes a MySQLAdapter configured with DSN connection parameters, DDL generator, and query builder.
+//
+//	Initializes a MySQLAdapter configured with DSN connection parameters, DDL generator, and query builder.
 //
 // Where it is used:
 //   - Instantiated during server startup, integration tests, and multi-database configurations.
@@ -70,7 +73,8 @@ func NewMySQLAdapter(dsn string) *MySQLAdapter {
 // WithSchemas configures specific MySQL database schemas/databases for introspection.
 //
 // Purpose:
-//   Restricts or expands schema introspection to the designated MySQL database schemas.
+//
+//	Restricts or expands schema introspection to the designated MySQL database schemas.
 //
 // Where it is used:
 //   - Chained during adapter initialization when multi-schema reverse engineering is needed.
@@ -85,7 +89,8 @@ func (a *MySQLAdapter) WithSchemas(schemas ...string) *MySQLAdapter {
 // WithDatabases configures specific MySQL database schemas/databases for introspection (alias for WithSchemas).
 //
 // Purpose:
-//   Convenience alias for WithSchemas to match MySQL database naming conventions.
+//
+//	Convenience alias for WithSchemas to match MySQL database naming conventions.
 //
 // Where it is used:
 //   - Chained during adapter configuration.
@@ -100,7 +105,8 @@ func (a *MySQLAdapter) WithDatabases(databases ...string) *MySQLAdapter {
 // Name returns the driver identifier string for MySQL.
 //
 // Purpose:
-//   Identifies the adapter as "mysql".
+//
+//	Identifies the adapter as "mysql".
 //
 // Where it is used:
 //   - In engine registration, routing, and logging.
@@ -114,7 +120,8 @@ func (a *MySQLAdapter) Name() string {
 // Capabilities returns the MySQL adapter capabilities matrix.
 //
 // Purpose:
-//   Reports supported features (transactions, DDL, procedures, functions, JSON validation, save modes) for MySQL.
+//
+//	Reports supported features (transactions, DDL, procedures, functions, JSON validation, save modes) for MySQL.
 //
 // Where it is used:
 //   - In DatasetService, validation engines, and capability matrix inspections.
@@ -262,6 +269,7 @@ func (a *MySQLAdapter) EnsureMetadataTables(ctx context.Context) error {
 		scale_val INT,
 		items JSON,
 		is_orbital_reference BOOLEAN DEFAULT FALSE,
+		load_with_children BOOLEAN DEFAULT FALSE,
 		orbital_reference_model_id VARCHAR(255),
 		orbital_reference_field_id VARCHAR(255),
 		orbital_reference_validation VARCHAR(100),
@@ -275,6 +283,7 @@ func (a *MySQLAdapter) EnsureMetadataTables(ctx context.Context) error {
 
 	_, _ = db.ExecContext(ctx, createCfgTable)
 	_, _ = db.ExecContext(ctx, createDMTable)
+	_, _ = db.ExecContext(ctx, `ALTER TABLE data_models ADD COLUMN IF NOT EXISTS load_with_children BOOLEAN DEFAULT FALSE`)
 	log.Printf("[MySQL] ✔ System metadata tables ('model_configs' and 'data_models') verified & active.")
 	return nil
 }
@@ -376,7 +385,6 @@ func (a *MySQLAdapter) ImportLiveMetadata(ctx context.Context) ([]*model.ModelCo
 	if err != nil {
 		return nil, nil, err
 	}
-
 
 	targetSchemas := "all user databases"
 	if len(a.schemas) > 0 {
@@ -625,6 +633,11 @@ func (a *MySQLAdapter) Create(ctx context.Context, ref model.ModelRef, data map[
 }
 
 func (a *MySQLAdapter) Find(ctx context.Context, ref model.ModelRef, q query.Query) ([]map[string]any, int64, error) {
+	q = q.EnsureDebugTrace()
+	started := time.Now()
+	if len(q.Relations) > 0 || len(q.RelationSpecs) > 0 {
+		return nil, 0, fmt.Errorf("mysql adapter does not hydrate relations directly; execute this query through the CRUD engine")
+	}
 	tableName := ref.StorageName
 	if tableName == "" {
 		tableName = ref.Name
@@ -632,13 +645,22 @@ func (a *MySQLAdapter) Find(ctx context.Context, ref model.ModelRef, q query.Que
 
 	db, err := a.getDB(ctx)
 	if err != nil {
+		if q.Debug {
+			log.Printf("[Query Debug][%s][MySQL] phase=connection-error duration=%s error=%q", q.DebugTraceID, time.Since(started), err)
+		}
 		return nil, 0, err
 	}
 
 	if db != nil {
 		sqlStr, args := a.queryBuilder.BuildSelect(tableName, q)
+		if q.Debug {
+			log.Printf("[Query Debug][%s][MySQL] phase=compiled table=%s relations=%v filters=%v fields=%v sorts=%v pagination=%+v sql=%s args=%v", q.DebugTraceID, tableName, q.Relations, q.DebugFilters(q.Filters), q.Fields, q.Sorts, q.Pagination, sqlStr, q.DebugArguments(args))
+		}
 		rows, err := db.QueryContext(ctx, sqlStr, args...)
 		if err != nil {
+			if q.Debug {
+				log.Printf("[Query Debug][%s][MySQL] phase=execution-error duration=%s error=%q", q.DebugTraceID, time.Since(started), err)
+			}
 			return nil, 0, fmt.Errorf("mysql select failed: %w", err)
 		}
 		defer rows.Close()
@@ -646,6 +668,9 @@ func (a *MySQLAdapter) Find(ctx context.Context, ref model.ModelRef, q query.Que
 		cols, err := rows.Columns()
 		if err != nil {
 			return nil, 0, err
+		}
+		if q.Debug {
+			log.Printf("[Query Debug][%s][MySQL] phase=scanning columns=%v", q.DebugTraceID, cols)
 		}
 
 		var results []map[string]any
@@ -669,7 +694,29 @@ func (a *MySQLAdapter) Find(ctx context.Context, ref model.ModelRef, q query.Que
 			}
 			results = append(results, rowMap)
 		}
-		return results, int64(len(results)), nil
+		if err := rows.Err(); err != nil {
+			if q.Debug {
+				log.Printf("[Query Debug][%s][MySQL] phase=cursor-error rows=%d duration=%s error=%q", q.DebugTraceID, len(results), time.Since(started), err)
+			}
+			return nil, 0, err
+		}
+		total := int64(len(results))
+		if q.CountTotal {
+			countSQL, countArgs := a.queryBuilder.BuildCount(tableName, q)
+			if q.Debug {
+				log.Printf("[Query Debug][%s][MySQL] phase=count-compiled sql=%s args=%v", q.DebugTraceID, countSQL, q.DebugArguments(countArgs))
+			}
+			if err := db.QueryRowContext(ctx, countSQL, countArgs...).Scan(&total); err != nil {
+				return nil, 0, fmt.Errorf("mysql count failed: %w", err)
+			}
+		}
+		if q.Debug {
+			log.Printf("[Query Debug][%s][MySQL] phase=complete duration=%s rows=%d total=%d", q.DebugTraceID, time.Since(started), len(results), total)
+			if elapsed := time.Since(started); q.IsSlow(elapsed) {
+				log.Printf("[Query Debug][%s][MySQL] phase=slow-query duration=%s threshold_ms=%d", q.DebugTraceID, elapsed, q.SlowQueryThresholdMS)
+			}
+		}
+		return results, total, nil
 	}
 
 	// In-Memory Fallback
@@ -679,16 +726,92 @@ func (a *MySQLAdapter) Find(ctx context.Context, ref model.ModelRef, q query.Que
 	rows := a.mockStore[tableName]
 	var results []map[string]any
 	for _, r := range rows {
+		if !mysqlMockMatches(r, q.Filters) {
+			continue
+		}
 		cp := make(map[string]any)
-		for k, v := range r {
-			cp[k] = v
+		if len(q.Fields) > 0 {
+			for _, field := range q.Fields {
+				if value, ok := r[field]; ok {
+					cp[field] = value
+				}
+			}
+		} else {
+			for k, v := range r {
+				cp[k] = v
+			}
 		}
 		results = append(results, cp)
 	}
-	return results, int64(len(results)), nil
+	total := int64(len(results))
+	start := q.Pagination.Offset
+	if start < 0 {
+		start = 0
+	}
+	if start > len(results) {
+		start = len(results)
+	}
+	end := len(results)
+	if q.Pagination.Limit > 0 && start+q.Pagination.Limit < end {
+		end = start + q.Pagination.Limit
+	}
+	results = results[start:end]
+	if q.Debug {
+		log.Printf("[Query Debug][%s][MySQL] phase=complete backend=offline-mock duration=%s rows=%d total=%d", q.DebugTraceID, time.Since(started), len(results), total)
+	}
+	return results, total, nil
+}
+
+func mysqlMockMatches(row map[string]any, filters []query.Filter) bool {
+	for _, filter := range filters {
+		actual, exists := row[filter.Field]
+		if !exists {
+			return false
+		}
+		equal := fmt.Sprintf("%v", actual) == fmt.Sprintf("%v", filter.Value)
+		switch filter.Op {
+		case query.OpEq:
+			if !equal {
+				return false
+			}
+		case query.OpNeq:
+			if equal {
+				return false
+			}
+		case query.OpIn, query.OpNin:
+			found := false
+			values := reflect.ValueOf(filter.Value)
+			if values.IsValid() && (values.Kind() == reflect.Slice || values.Kind() == reflect.Array) {
+				for i := 0; i < values.Len(); i++ {
+					if fmt.Sprintf("%v", actual) == fmt.Sprintf("%v", values.Index(i).Interface()) {
+						found = true
+						break
+					}
+				}
+			}
+			if (filter.Op == query.OpIn && !found) || (filter.Op == query.OpNin && found) {
+				return false
+			}
+		case query.OpIsNull:
+			if actual != nil {
+				return false
+			}
+		case query.OpIsNotNull:
+			if actual == nil {
+				return false
+			}
+		default:
+			return false
+		}
+	}
+	return true
 }
 
 func (a *MySQLAdapter) FindOne(ctx context.Context, ref model.ModelRef, id any) (map[string]any, error) {
+	return a.FindOneWithQuery(ctx, ref, id, query.NewQuery())
+}
+
+func (a *MySQLAdapter) FindOneWithQuery(ctx context.Context, ref model.ModelRef, id any, q query.Query) (map[string]any, error) {
 	tableName := ref.StorageName
 	if tableName == "" {
 		tableName = ref.Name
@@ -700,7 +823,11 @@ func (a *MySQLAdapter) FindOne(ctx context.Context, ref model.ModelRef, id any) 
 	}
 
 	if db != nil {
-		q := query.NewQuery().Where("id", query.OpEq, id)
+		primaryKey := ref.PrimaryKey
+		if primaryKey == "" {
+			primaryKey = "id"
+		}
+		q = q.Where(primaryKey, query.OpEq, id)
 		q.Pagination.Limit = 1
 		results, _, err := a.Find(ctx, ref, q)
 		if err != nil {
@@ -716,9 +843,13 @@ func (a *MySQLAdapter) FindOne(ctx context.Context, ref model.ModelRef, id any) 
 	a.mu.RLock()
 	defer a.mu.RUnlock()
 
+	primaryKey := ref.PrimaryKey
+	if primaryKey == "" {
+		primaryKey = "id"
+	}
 	idStr := fmt.Sprintf("%v", id)
 	for _, r := range a.mockStore[tableName] {
-		if fmt.Sprintf("%v", r["id"]) == idStr {
+		if fmt.Sprintf("%v", r[primaryKey]) == idStr {
 			cp := make(map[string]any)
 			for k, v := range r {
 				cp[k] = v
@@ -904,6 +1035,10 @@ func (t *MySQLTransaction) Find(ctx context.Context, m model.ModelRef, q query.Q
 
 func (t *MySQLTransaction) FindOne(ctx context.Context, m model.ModelRef, id any) (map[string]any, error) {
 	return t.adapter.FindOne(ctx, m, id)
+}
+
+func (t *MySQLTransaction) FindOneWithQuery(ctx context.Context, m model.ModelRef, id any, q query.Query) (map[string]any, error) {
+	return t.adapter.FindOneWithQuery(ctx, m, id, q)
 }
 
 func (t *MySQLTransaction) Update(ctx context.Context, m model.ModelRef, id any, data map[string]any) (map[string]any, error) {

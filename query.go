@@ -3,10 +3,11 @@
 //
 // File: query.go
 // Usage:
-//   This file implements the MySQL QueryBuilder, translating universal query.Query
-//   specifications into parameterized MySQL SQL queries with '?' placeholders.
-//   It handles SELECT projection, backtick quoting, WHERE filters, ORDER BY, LIMIT/OFFSET,
-//   and CRUD statements (INSERT, UPDATE, DELETE).
+//
+//	This file implements the MySQL QueryBuilder, translating universal query.Query
+//	specifications into parameterized MySQL SQL queries with '?' placeholders.
+//	It handles SELECT projection, backtick quoting, WHERE filters, ORDER BY, LIMIT/OFFSET,
+//	and CRUD statements (INSERT, UPDATE, DELETE).
 package mysql
 
 import (
@@ -22,7 +23,8 @@ type QueryBuilder struct{}
 // BuildSelect compiles a SELECT query, returning the query string and argument slice.
 //
 // Purpose:
-//   Constructs a parameterized SELECT query matching column selections, filters, sorts, and limits.
+//
+//	Constructs a parameterized SELECT query matching column selections, filters, sorts, and limits.
 //
 // Where it is used:
 //   - Called by MySQLAdapter.Find when querying records.
@@ -71,10 +73,22 @@ func (b *QueryBuilder) BuildSelect(table string, q query.Query) (string, []any) 
 	return sql + ";", args
 }
 
+func (b *QueryBuilder) BuildCount(table string, q query.Query) (string, []any) {
+	q.Fields = nil
+	q.ExcludedColumns = nil
+	q.Sorts = nil
+	q.Pagination = query.Pagination{}
+	q.CountTotal = false
+	inner, args := b.BuildSelect(table, q)
+	inner = strings.TrimSuffix(strings.TrimSpace(inner), ";")
+	return fmt.Sprintf("SELECT COUNT(*) FROM (%s) AS _count;", inner), args
+}
+
 // BuildInsert compiles an INSERT statement.
 //
 // Purpose:
-//   Constructs a parameterized INSERT INTO statement with '?' values.
+//
+//	Constructs a parameterized INSERT INTO statement with '?' values.
 //
 // Where it is used:
 //   - Called by MySQLAdapter.Create.
@@ -104,7 +118,8 @@ func (b *QueryBuilder) BuildInsert(table string, data map[string]any) (string, [
 // BuildUpdate compiles an UPDATE statement by ID.
 //
 // Purpose:
-//   Constructs a parameterized UPDATE statement modifying non-primary key columns for a specified ID.
+//
+//	Constructs a parameterized UPDATE statement modifying non-primary key columns for a specified ID.
 //
 // Where it is used:
 //   - Called by MySQLAdapter.Update and Patch.
@@ -136,7 +151,8 @@ func (b *QueryBuilder) BuildUpdate(table string, id any, data map[string]any) (s
 // BuildDelete compiles a DELETE statement by ID.
 //
 // Purpose:
-//   Constructs a parameterized DELETE statement targeting a record by primary key ID.
+//
+//	Constructs a parameterized DELETE statement targeting a record by primary key ID.
 //
 // Where it is used:
 //   - Called by MySQLAdapter.Delete.
@@ -151,7 +167,8 @@ func (b *QueryBuilder) BuildDelete(table string, id any) (string, []any) {
 // buildWhere constructs the WHERE clause and extracts positional parameter arguments.
 //
 // Purpose:
-//   Recursively traverses filters, raw expressions, and nested condition groups joining by AND or OR.
+//
+//	Recursively traverses filters, raw expressions, and nested condition groups joining by AND or OR.
 //
 // Where it is used:
 //   - Internal helper for BuildSelect and count queries.
@@ -192,7 +209,8 @@ func (b *QueryBuilder) buildWhere(q query.Query) (string, []any) {
 // buildCondition converts an individual query.Filter into a MySQL condition clause.
 //
 // Purpose:
-//   Maps abstract operators (OpEq, OpGt, OpLike, OpIn, OpBetween, etc.) to SQL fragments with '?' placeholders.
+//
+//	Maps abstract operators (OpEq, OpGt, OpLike, OpIn, OpBetween, etc.) to SQL fragments with '?' placeholders.
 //
 // Where it is used:
 //   - Called by buildWhere for each filter criterion.
