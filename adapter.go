@@ -39,6 +39,11 @@ type MySQLTableItem struct {
 	Name   string `json:"name"`
 }
 
+const (
+	ansiColorReset      = "\033[0m"
+	ansiColorYellowBold = "\033[1;33m"
+)
+
 // MySQLAdapter implements the core Adapter interface for MySQL with live network and mock fallback support.
 type MySQLAdapter struct {
 	dsn          string
@@ -710,11 +715,16 @@ func (a *MySQLAdapter) Find(ctx context.Context, ref model.ModelRef, q query.Que
 				return nil, 0, fmt.Errorf("mysql count failed: %w", err)
 			}
 		}
+		elapsed := time.Since(started)
 		if q.Debug {
-			log.Printf("[Query Debug][%s][MySQL] phase=complete duration=%s rows=%d total=%d", q.DebugTraceID, time.Since(started), len(results), total)
-			if elapsed := time.Since(started); q.IsSlow(elapsed) {
-				log.Printf("[Query Debug][%s][MySQL] phase=slow-query duration=%s threshold_ms=%d", q.DebugTraceID, elapsed, q.SlowQueryThresholdMS)
+			log.Printf("[Query Debug][%s][MySQL] phase=complete duration=%s rows=%d total=%d", q.DebugTraceID, elapsed, len(results), total)
+		}
+		if q.IsSlow(elapsed) {
+			traceID := q.DebugTraceID
+			if traceID == "" {
+				traceID = "slow"
 			}
+			log.Printf("%s[Query Debug][%s][MySQL] phase=slow-query duration=%s threshold_ms=%d%s", ansiColorYellowBold, traceID, elapsed, q.SlowQueryThresholdMS, ansiColorReset)
 		}
 		return results, total, nil
 	}
@@ -756,8 +766,16 @@ func (a *MySQLAdapter) Find(ctx context.Context, ref model.ModelRef, q query.Que
 		end = start + q.Pagination.Limit
 	}
 	results = results[start:end]
+	elapsed := time.Since(started)
 	if q.Debug {
-		log.Printf("[Query Debug][%s][MySQL] phase=complete backend=offline-mock duration=%s rows=%d total=%d", q.DebugTraceID, time.Since(started), len(results), total)
+		log.Printf("[Query Debug][%s][MySQL] phase=complete backend=offline-mock duration=%s rows=%d total=%d", q.DebugTraceID, elapsed, len(results), total)
+	}
+	if q.IsSlow(elapsed) {
+		traceID := q.DebugTraceID
+		if traceID == "" {
+			traceID = "slow"
+		}
+		log.Printf("%s[Query Debug][%s][MySQL] phase=slow-query duration=%s threshold_ms=%d%s", ansiColorYellowBold, traceID, elapsed, q.SlowQueryThresholdMS, ansiColorReset)
 	}
 	return results, total, nil
 }
