@@ -144,6 +144,9 @@ func (c *MySQLDataSetCompiler) buildSelectSQL(ast *planner.QueryAST, parameteriz
 
 	// Nested object/array relations contain only fields selected for that alias.
 	for _, j := range ast.Joins {
+		if strings.EqualFold(j.OutputFormat, "NONE") || strings.EqualFold(j.Cardinality, "NONE") {
+			continue
+		}
 		fields := mysqlRelationProjections(ast, j)
 		if strings.EqualFold(j.OutputFormat, "OBJECT") && !strings.EqualFold(j.Cardinality, "MANY") {
 			selectCols = append(selectCols, fmt.Sprintf("CASE WHEN `%s`.`%s` IS NULL THEN NULL ELSE %s END AS `%s`", j.Alias, j.ToField, mysqlJSONObject(j, j.Alias, fields), j.Alias))
@@ -206,7 +209,9 @@ func (c *MySQLDataSetCompiler) buildSelectSQL(ast *planner.QueryAST, parameteriz
 	// 4. Joins
 	var joinClauses []string
 	for _, j := range ast.Joins {
-		if strings.EqualFold(j.Cardinality, "MANY") || strings.EqualFold(j.OutputFormat, "JSON_ARRAY") {
+		if strings.EqualFold(j.OutputFormat, "NONE") || strings.EqualFold(j.Cardinality, "NONE") {
+			// keep standard JOIN for flat fields
+		} else if strings.EqualFold(j.Cardinality, "MANY") || strings.EqualFold(j.OutputFormat, "JSON_ARRAY") {
 			continue
 		}
 		jType := "LEFT JOIN"
@@ -295,6 +300,9 @@ func (c *MySQLDataSetCompiler) buildSelectSQL(ast *planner.QueryAST, parameteriz
 // isNestedJoinProjection reports whether a projection belongs inside a relation object or array.
 func isNestedJoinProjection(ast *planner.QueryAST, projection planner.ASTProjection) bool {
 	for _, join := range ast.Joins {
+		if strings.EqualFold(join.OutputFormat, "NONE") || strings.EqualFold(join.Cardinality, "NONE") {
+			continue
+		}
 		if strings.EqualFold(join.Alias, projection.SourceTable) && (strings.EqualFold(join.OutputFormat, "OBJECT") || strings.EqualFold(join.OutputFormat, "JSON_ARRAY") || strings.EqualFold(join.Cardinality, "MANY")) {
 			return true
 		}
