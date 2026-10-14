@@ -3,9 +3,10 @@
 //
 // File: ddl.go
 // Usage:
-//   This file implements the MySQL DDLGenerator, which converts abstract SchemaOperations
-//   (OpCreateTable, OpDropTable, OpAddColumn, OpDropColumn, OpModifyColumn, etc.) into
-//   valid MySQL DDL statements with backtick identifier quoting and MySQL engine defaults (InnoDB, utf8mb4).
+//
+//	This file implements the MySQL DDLGenerator, which converts abstract SchemaOperations
+//	(OpCreateTable, OpDropTable, OpAddColumn, OpDropColumn, OpModifyColumn, etc.) into
+//	valid MySQL DDL statements with backtick identifier quoting and MySQL engine defaults (InnoDB, utf8mb4).
 package mysql
 
 import (
@@ -22,13 +23,32 @@ type DDLGenerator struct{}
 // NewDDLGenerator creates a new MySQL DDL compiler.
 //
 // Purpose:
-//   Initializes a MySQL DDLGenerator instance.
+//
+//	Initializes a MySQL DDLGenerator instance.
 //
 // Where it is used:
 //   - Instantiated in MySQLAdapter.ApplySchemaChange and PreviewSchemaChange.
 //
 // When can it be used:
 //   - When translating schema migration diff plans into executable MySQL DDL statements.
+//
+// Parameters:
+//   - None.
+//
+// Returns:
+//   - result1 (*DDLGenerator): Returned value.
+//
+// Business Rules:
+//   - Follows the invariants documented by NewDDLGenerator and its owning package.
+//
+// Side Effects:
+//   - Does not intentionally mutate caller-owned input; configured dependencies may still be consulted.
+//
+// Errors:
+//   - This function does not return an error.
+//
+// Note:
+//   - Callers should preserve the documented ownership and lifecycle of supplied values.
 func NewDDLGenerator() *DDLGenerator {
 	return &DDLGenerator{}
 }
@@ -36,13 +56,33 @@ func NewDDLGenerator() *DDLGenerator {
 // GenerateStatements transforms SchemaOperations into MySQL DDL statements.
 //
 // Purpose:
-//   Iterates through planned schema operations and generates a sequence of MySQL DDL queries.
+//
+//	Iterates through planned schema operations and generates a sequence of MySQL DDL queries.
 //
 // Where it is used:
 //   - Called by MySQLAdapter during schema migrations and previews.
 //
 // When can it be used:
 //   - When executing or previewing DDL operations against a MySQL database.
+//
+// Parameters:
+//   - ops ([]diff.SchemaOperation): Input value used by the operation.
+//
+// Returns:
+//   - result1 ([]string): Returned value.
+//   - result2 (error): Returned value.
+//
+// Business Rules:
+//   - Follows the invariants documented by GenerateStatements and its owning package.
+//
+// Side Effects:
+//   - Does not intentionally mutate caller-owned input; configured dependencies may still be consulted.
+//
+// Errors:
+//   - Returns validation, configuration, context, or underlying dependency errors.
+//
+// Note:
+//   - Callers should preserve the documented ownership and lifecycle of supplied values.
 func (g *DDLGenerator) GenerateStatements(ops []diff.SchemaOperation) ([]string, error) {
 	statements := make([]string, 0, len(ops))
 
@@ -62,13 +102,33 @@ func (g *DDLGenerator) GenerateStatements(ops []diff.SchemaOperation) ([]string,
 // GenerateStatement compiles an individual operation for MySQL.
 //
 // Purpose:
-//   Translates a single schema operation (table creation, column drop, index add) into MySQL SQL.
+//
+//	Translates a single schema operation (table creation, column drop, index add) into MySQL SQL.
 //
 // Where it is used:
 //   - Called by GenerateStatements for each planned operation.
 //
 // When can it be used:
 //   - When generating SQL for an atomic schema alteration.
+//
+// Parameters:
+//   - op (diff.SchemaOperation): Input value used by the operation.
+//
+// Returns:
+//   - result1 (string): Returned value.
+//   - result2 (error): Returned value.
+//
+// Business Rules:
+//   - Follows the invariants documented by GenerateStatement and its owning package.
+//
+// Side Effects:
+//   - Does not intentionally mutate caller-owned input; configured dependencies may still be consulted.
+//
+// Errors:
+//   - Returns validation, configuration, context, or underlying dependency errors.
+//
+// Note:
+//   - Callers should preserve the documented ownership and lifecycle of supplied values.
 func (g *DDLGenerator) GenerateStatement(op diff.SchemaOperation) (string, error) {
 	table := quoteIdent(op.TargetTable)
 

@@ -66,6 +66,24 @@ type MySQLAdapter struct {
 //
 // When can it be used:
 //   - When connecting the engine or Dataset Studio to a MySQL database instance.
+//
+// Parameters:
+//   - dsn (string): Input value used by the operation.
+//
+// Returns:
+//   - result1 (*MySQLAdapter): Returned value.
+//
+// Business Rules:
+//   - Follows the invariants documented by NewMySQLAdapter and its owning package.
+//
+// Side Effects:
+//   - Does not intentionally mutate caller-owned input; configured dependencies may still be consulted.
+//
+// Errors:
+//   - This function does not return an error.
+//
+// Note:
+//   - Callers should preserve the documented ownership and lifecycle of supplied values.
 func NewMySQLAdapter(dsn string) *MySQLAdapter {
 	return &MySQLAdapter{
 		dsn:          dsn,
@@ -86,6 +104,24 @@ func NewMySQLAdapter(dsn string) *MySQLAdapter {
 //
 // When can it be used:
 //   - When inspecting tables across multiple MySQL databases or filtering out system schemas.
+//
+// Parameters:
+//   - schemas (...string): Input value used by the operation.
+//
+// Returns:
+//   - result1 (*MySQLAdapter): Returned value.
+//
+// Business Rules:
+//   - Follows the invariants documented by WithSchemas and its owning package.
+//
+// Side Effects:
+//   - May update receiver state, persistent storage, or configured external dependencies.
+//
+// Errors:
+//   - This function does not return an error.
+//
+// Note:
+//   - Callers should preserve the documented ownership and lifecycle of supplied values.
 func (a *MySQLAdapter) WithSchemas(schemas ...string) *MySQLAdapter {
 	a.schemas = schemas
 	return a
@@ -102,6 +138,24 @@ func (a *MySQLAdapter) WithSchemas(schemas ...string) *MySQLAdapter {
 //
 // When can it be used:
 //   - When setting target databases for schema inspection.
+//
+// Parameters:
+//   - databases (...string): Input value used by the operation.
+//
+// Returns:
+//   - result1 (*MySQLAdapter): Returned value.
+//
+// Business Rules:
+//   - Follows the invariants documented by WithDatabases and its owning package.
+//
+// Side Effects:
+//   - May update receiver state, persistent storage, or configured external dependencies.
+//
+// Errors:
+//   - This function does not return an error.
+//
+// Note:
+//   - Callers should preserve the documented ownership and lifecycle of supplied values.
 func (a *MySQLAdapter) WithDatabases(databases ...string) *MySQLAdapter {
 	a.schemas = databases
 	return a
@@ -118,6 +172,24 @@ func (a *MySQLAdapter) WithDatabases(databases ...string) *MySQLAdapter {
 //
 // When can it be used:
 //   - Whenever querying the adapter driver name.
+//
+// Parameters:
+//   - None.
+//
+// Returns:
+//   - result1 (string): Returned value.
+//
+// Business Rules:
+//   - Follows the invariants documented by Name and its owning package.
+//
+// Side Effects:
+//   - Does not intentionally mutate caller-owned input; configured dependencies may still be consulted.
+//
+// Errors:
+//   - This function does not return an error.
+//
+// Note:
+//   - Callers should preserve the documented ownership and lifecycle of supplied values.
 func (a *MySQLAdapter) Name() string {
 	return "mysql"
 }
@@ -133,6 +205,24 @@ func (a *MySQLAdapter) Name() string {
 //
 // When can it be used:
 //   - At runtime whenever callers need to determine the capability profile of the MySQL adapter.
+//
+// Parameters:
+//   - None.
+//
+// Returns:
+//   - result1 (adapter.Capabilities): Returned value.
+//
+// Business Rules:
+//   - Follows the invariants documented by Capabilities and its owning package.
+//
+// Side Effects:
+//   - Does not intentionally mutate caller-owned input; configured dependencies may still be consulted.
+//
+// Errors:
+//   - This function does not return an error.
+//
+// Note:
+//   - Callers should preserve the documented ownership and lifecycle of supplied values.
 func (a *MySQLAdapter) Capabilities() adapter.Capabilities {
 	return adapter.Capabilities{
 		Category:                    adapter.StorageCategoryRelational,
@@ -148,11 +238,47 @@ func (a *MySQLAdapter) Capabilities() adapter.Capabilities {
 }
 
 // NativeClient returns the underlying *sql.DB connection handle.
+//
+// Parameters:
+//   - None.
+//
+// Returns:
+//   - result1 (any): Returned value.
+//
+// Business Rules:
+//   - Follows the invariants documented by NativeClient and its owning package.
+//
+// Side Effects:
+//   - Does not intentionally mutate caller-owned input; configured dependencies may still be consulted.
+//
+// Errors:
+//   - This function does not return an error.
+//
+// Note:
+//   - Callers should preserve the documented ownership and lifecycle of supplied values.
 func (a *MySQLAdapter) NativeClient() any {
 	return a.DB()
 }
 
 // DB returns the underlying *sql.DB connection handle.
+//
+// Parameters:
+//   - None.
+//
+// Returns:
+//   - result1 (*sql.DB): Returned value.
+//
+// Business Rules:
+//   - Follows the invariants documented by DB and its owning package.
+//
+// Side Effects:
+//   - Does not intentionally mutate caller-owned input; configured dependencies may still be consulted.
+//
+// Errors:
+//   - This function does not return an error.
+//
+// Note:
+//   - Callers should preserve the documented ownership and lifecycle of supplied values.
 func (a *MySQLAdapter) DB() *sql.DB {
 	a.mu.RLock()
 	defer a.mu.RUnlock()
@@ -160,11 +286,47 @@ func (a *MySQLAdapter) DB() *sql.DB {
 }
 
 // DatabaseName returns the target database name.
+//
+// Parameters:
+//   - None.
+//
+// Returns:
+//   - result1 (string): Returned value.
+//
+// Business Rules:
+//   - Follows the invariants documented by DatabaseName and its owning package.
+//
+// Side Effects:
+//   - Does not intentionally mutate caller-owned input; configured dependencies may still be consulted.
+//
+// Errors:
+//   - This function does not return an error.
+//
+// Note:
+//   - Callers should preserve the documented ownership and lifecycle of supplied values.
 func (a *MySQLAdapter) DatabaseName() string {
 	return a.GetDatabaseName()
 }
 
 // GetDatabaseName returns the database name extracted from the DSN string, or "in-memory mock" if no DSN.
+//
+// Parameters:
+//   - None.
+//
+// Returns:
+//   - result1 (string): Returned value.
+//
+// Business Rules:
+//   - Follows the invariants documented by GetDatabaseName and its owning package.
+//
+// Side Effects:
+//   - Does not intentionally mutate caller-owned input; configured dependencies may still be consulted.
+//
+// Errors:
+//   - This function does not return an error.
+//
+// Note:
+//   - Callers should preserve the documented ownership and lifecycle of supplied values.
 func (a *MySQLAdapter) GetDatabaseName() string {
 	if strings.TrimSpace(a.dsn) == "" {
 		return "in-memory mock"
@@ -221,6 +383,24 @@ func (a *MySQLAdapter) getDB(ctx context.Context) (*sql.DB, error) {
 }
 
 // EnsureMetadataTables creates 'model_configs' and 'data_models' system metadata tables if they do not exist.
+//
+// Parameters:
+//   - ctx (context.Context): Input value used by the operation.
+//
+// Returns:
+//   - result1 (error): Returned value.
+//
+// Business Rules:
+//   - Follows the invariants documented by EnsureMetadataTables and its owning package.
+//
+// Side Effects:
+//   - Does not intentionally mutate caller-owned input; configured dependencies may still be consulted.
+//
+// Errors:
+//   - Returns validation, configuration, context, or underlying dependency errors.
+//
+// Note:
+//   - The context controls cancellation and request lifetime.
 func (a *MySQLAdapter) EnsureMetadataTables(ctx context.Context) error {
 	db, err := a.getDB(ctx)
 	if err != nil || db == nil {
@@ -294,6 +474,25 @@ func (a *MySQLAdapter) EnsureMetadataTables(ctx context.Context) error {
 }
 
 // ListSchemas queries MySQL information_schema for all user databases/schemas.
+//
+// Parameters:
+//   - ctx (context.Context): Input value used by the operation.
+//
+// Returns:
+//   - result1 ([]string): Returned value.
+//   - result2 (error): Returned value.
+//
+// Business Rules:
+//   - Follows the invariants documented by ListSchemas and its owning package.
+//
+// Side Effects:
+//   - Does not intentionally mutate caller-owned input; configured dependencies may still be consulted.
+//
+// Errors:
+//   - Returns validation, configuration, context, or underlying dependency errors.
+//
+// Note:
+//   - The context controls cancellation and request lifetime.
 func (a *MySQLAdapter) ListSchemas(ctx context.Context) ([]string, error) {
 	db, err := a.getDB(ctx)
 	if err != nil || db == nil {
@@ -322,6 +521,26 @@ func (a *MySQLAdapter) ListSchemas(ctx context.Context) ([]string, error) {
 }
 
 // ListTables queries MySQL information_schema for all base tables across schemas.
+//
+// Parameters:
+//   - ctx (context.Context): Input value used by the operation.
+//   - schemas (...string): Input value used by the operation.
+//
+// Returns:
+//   - result1 ([]MySQLTableItem): Returned value.
+//   - result2 (error): Returned value.
+//
+// Business Rules:
+//   - Follows the invariants documented by ListTables and its owning package.
+//
+// Side Effects:
+//   - Does not intentionally mutate caller-owned input; configured dependencies may still be consulted.
+//
+// Errors:
+//   - Returns validation, configuration, context, or underlying dependency errors.
+//
+// Note:
+//   - The context controls cancellation and request lifetime.
 func (a *MySQLAdapter) ListTables(ctx context.Context, schemas ...string) ([]MySQLTableItem, error) {
 	db, err := a.getDB(ctx)
 	if err != nil || db == nil {
@@ -379,6 +598,26 @@ func (a *MySQLAdapter) ListTables(ctx context.Context, schemas ...string) ([]MyS
 }
 
 // ImportLiveMetadata introspects live MySQL database tables and auto-populates model_configs & data_models.
+//
+// Parameters:
+//   - ctx (context.Context): Input value used by the operation.
+//
+// Returns:
+//   - result1 ([]*model.ModelConfig): Returned value.
+//   - result2 ([]*model.DataModel): Returned value.
+//   - result3 (error): Returned value.
+//
+// Business Rules:
+//   - Follows the invariants documented by ImportLiveMetadata and its owning package.
+//
+// Side Effects:
+//   - Does not intentionally mutate caller-owned input; configured dependencies may still be consulted.
+//
+// Errors:
+//   - Returns validation, configuration, context, or underlying dependency errors.
+//
+// Note:
+//   - The context controls cancellation and request lifetime.
 func (a *MySQLAdapter) ImportLiveMetadata(ctx context.Context) ([]*model.ModelConfig, []*model.DataModel, error) {
 	db, err := a.getDB(ctx)
 	if err != nil || db == nil {
@@ -512,11 +751,45 @@ func (a *MySQLAdapter) ImportLiveMetadata(ctx context.Context) ([]*model.ModelCo
 	return configs, fields, nil
 }
 
+// Parameters:
+//   - ctx (context.Context): Input value used by the operation.
+//
+// Returns:
+//   - result1 (error): Returned value.
+//
+// Business Rules:
+//   - Follows the invariants documented by Connect and its owning package.
+//
+// Side Effects:
+//   - May update receiver state, persistent storage, or configured external dependencies.
+//
+// Errors:
+//   - Returns validation, configuration, context, or underlying dependency errors.
+//
+// Note:
+//   - The context controls cancellation and request lifetime.
 func (a *MySQLAdapter) Connect(ctx context.Context) error {
 	_, err := a.getDB(ctx)
 	return err
 }
 
+// Parameters:
+//   - ctx (context.Context): Input value used by the operation.
+//
+// Returns:
+//   - result1 (error): Returned value.
+//
+// Business Rules:
+//   - Follows the invariants documented by Ping and its owning package.
+//
+// Side Effects:
+//   - Does not intentionally mutate caller-owned input; configured dependencies may still be consulted.
+//
+// Errors:
+//   - Returns validation, configuration, context, or underlying dependency errors.
+//
+// Note:
+//   - The context controls cancellation and request lifetime.
 func (a *MySQLAdapter) Ping(ctx context.Context) error {
 	db, err := a.getDB(ctx)
 	if err != nil {
@@ -528,6 +801,23 @@ func (a *MySQLAdapter) Ping(ctx context.Context) error {
 	return nil
 }
 
+// Parameters:
+//   - ctx (context.Context): Input value used by the operation.
+//
+// Returns:
+//   - result1 (error): Returned value.
+//
+// Business Rules:
+//   - Follows the invariants documented by Close and its owning package.
+//
+// Side Effects:
+//   - May update receiver state, persistent storage, or configured external dependencies.
+//
+// Errors:
+//   - Returns validation, configuration, context, or underlying dependency errors.
+//
+// Note:
+//   - The context controls cancellation and request lifetime.
 func (a *MySQLAdapter) Close(ctx context.Context) error {
 	a.mu.Lock()
 	defer a.mu.Unlock()
@@ -539,15 +829,71 @@ func (a *MySQLAdapter) Close(ctx context.Context) error {
 	return nil
 }
 
+// Parameters:
+//   - ctx (context.Context): Input value used by the operation.
+//   - ref (model.ModelRef): Input value used by the operation.
+//
+// Returns:
+//   - result1 (*schema.Schema): Returned value.
+//   - result2 (error): Returned value.
+//
+// Business Rules:
+//   - Follows the invariants documented by GetSchema and its owning package.
+//
+// Side Effects:
+//   - Does not intentionally mutate caller-owned input; configured dependencies may still be consulted.
+//
+// Errors:
+//   - Returns validation, configuration, context, or underlying dependency errors.
+//
+// Note:
+//   - The context controls cancellation and request lifetime.
 func (a *MySQLAdapter) GetSchema(ctx context.Context, ref model.ModelRef) (*schema.Schema, error) {
 	return nil, nil
 }
 
+// Parameters:
+//   - ctx (context.Context): Input value used by the operation.
+//   - p (*plan.SchemaPlan): Input value used by the operation.
+//
+// Returns:
+//   - result1 (error): Returned value.
+//
+// Business Rules:
+//   - Follows the invariants documented by ValidateSchemaPlan and its owning package.
+//
+// Side Effects:
+//   - Does not intentionally mutate caller-owned input; configured dependencies may still be consulted.
+//
+// Errors:
+//   - Returns validation, configuration, context, or underlying dependency errors.
+//
+// Note:
+//   - The context controls cancellation and request lifetime.
 func (a *MySQLAdapter) ValidateSchemaPlan(ctx context.Context, p *plan.SchemaPlan) error {
 	_, err := a.ddlGen.GenerateStatements(p.Operations)
 	return err
 }
 
+// Parameters:
+//   - ctx (context.Context): Input value used by the operation.
+//   - p (*plan.SchemaPlan): Input value used by the operation.
+//
+// Returns:
+//   - result1 (*plan.SchemaPreview): Returned value.
+//   - result2 (error): Returned value.
+//
+// Business Rules:
+//   - Follows the invariants documented by PreviewSchemaChange and its owning package.
+//
+// Side Effects:
+//   - Does not intentionally mutate caller-owned input; configured dependencies may still be consulted.
+//
+// Errors:
+//   - Returns validation, configuration, context, or underlying dependency errors.
+//
+// Note:
+//   - The context controls cancellation and request lifetime.
 func (a *MySQLAdapter) PreviewSchemaChange(ctx context.Context, p *plan.SchemaPlan) (*plan.SchemaPreview, error) {
 	statements, err := a.ddlGen.GenerateStatements(p.Operations)
 	if err != nil {
@@ -578,6 +924,24 @@ func (a *MySQLAdapter) PreviewSchemaChange(ctx context.Context, p *plan.SchemaPl
 	}, nil
 }
 
+// Parameters:
+//   - ctx (context.Context): Input value used by the operation.
+//   - p (*plan.SchemaPlan): Input value used by the operation.
+//
+// Returns:
+//   - result1 (error): Returned value.
+//
+// Business Rules:
+//   - Follows the invariants documented by ApplySchemaChange and its owning package.
+//
+// Side Effects:
+//   - May update receiver state, persistent storage, or configured external dependencies.
+//
+// Errors:
+//   - Returns validation, configuration, context, or underlying dependency errors.
+//
+// Note:
+//   - The context controls cancellation and request lifetime.
 func (a *MySQLAdapter) ApplySchemaChange(ctx context.Context, p *plan.SchemaPlan) error {
 	statements, err := a.ddlGen.GenerateStatements(p.Operations)
 	if err != nil {
@@ -600,6 +964,26 @@ func (a *MySQLAdapter) ApplySchemaChange(ctx context.Context, p *plan.SchemaPlan
 	return nil
 }
 
+// Parameters:
+//   - ctx (context.Context): Input value used by the operation.
+//   - ref (model.ModelRef): Input value used by the operation.
+//   - data (map[string]any): Input value used by the operation.
+//
+// Returns:
+//   - result1 (map[string]any): Returned value.
+//   - result2 (error): Returned value.
+//
+// Business Rules:
+//   - Follows the invariants documented by Create and its owning package.
+//
+// Side Effects:
+//   - May update receiver state, persistent storage, or configured external dependencies.
+//
+// Errors:
+//   - Returns validation, configuration, context, or underlying dependency errors.
+//
+// Note:
+//   - The context controls cancellation and request lifetime.
 func (a *MySQLAdapter) Create(ctx context.Context, ref model.ModelRef, data map[string]any) (map[string]any, error) {
 	tableName := ref.StorageName
 	if tableName == "" {
@@ -637,6 +1021,27 @@ func (a *MySQLAdapter) Create(ctx context.Context, ref model.ModelRef, data map[
 	return res, nil
 }
 
+// Parameters:
+//   - ctx (context.Context): Input value used by the operation.
+//   - ref (model.ModelRef): Input value used by the operation.
+//   - q (query.Query): Input value used by the operation.
+//
+// Returns:
+//   - result1 ([]map[string]any): Returned value.
+//   - result2 (int64): Returned value.
+//   - result3 (error): Returned value.
+//
+// Business Rules:
+//   - Follows the invariants documented by Find and its owning package.
+//
+// Side Effects:
+//   - Does not intentionally mutate caller-owned input; configured dependencies may still be consulted.
+//
+// Errors:
+//   - Returns validation, configuration, context, or underlying dependency errors.
+//
+// Note:
+//   - The context controls cancellation and request lifetime.
 func (a *MySQLAdapter) Find(ctx context.Context, ref model.ModelRef, q query.Query) ([]map[string]any, int64, error) {
 	q = q.EnsureDebugTrace()
 	started := time.Now()
@@ -825,10 +1230,51 @@ func mysqlMockMatches(row map[string]any, filters []query.Filter) bool {
 	return true
 }
 
+// Parameters:
+//   - ctx (context.Context): Input value used by the operation.
+//   - ref (model.ModelRef): Input value used by the operation.
+//   - id (any): Input value used by the operation.
+//
+// Returns:
+//   - result1 (map[string]any): Returned value.
+//   - result2 (error): Returned value.
+//
+// Business Rules:
+//   - Follows the invariants documented by FindOne and its owning package.
+//
+// Side Effects:
+//   - Does not intentionally mutate caller-owned input; configured dependencies may still be consulted.
+//
+// Errors:
+//   - Returns validation, configuration, context, or underlying dependency errors.
+//
+// Note:
+//   - The context controls cancellation and request lifetime.
 func (a *MySQLAdapter) FindOne(ctx context.Context, ref model.ModelRef, id any) (map[string]any, error) {
 	return a.FindOneWithQuery(ctx, ref, id, query.NewQuery())
 }
 
+// Parameters:
+//   - ctx (context.Context): Input value used by the operation.
+//   - ref (model.ModelRef): Input value used by the operation.
+//   - id (any): Input value used by the operation.
+//   - q (query.Query): Input value used by the operation.
+//
+// Returns:
+//   - result1 (map[string]any): Returned value.
+//   - result2 (error): Returned value.
+//
+// Business Rules:
+//   - Follows the invariants documented by FindOneWithQuery and its owning package.
+//
+// Side Effects:
+//   - Does not intentionally mutate caller-owned input; configured dependencies may still be consulted.
+//
+// Errors:
+//   - Returns validation, configuration, context, or underlying dependency errors.
+//
+// Note:
+//   - The context controls cancellation and request lifetime.
 func (a *MySQLAdapter) FindOneWithQuery(ctx context.Context, ref model.ModelRef, id any, q query.Query) (map[string]any, error) {
 	tableName := ref.StorageName
 	if tableName == "" {
@@ -878,6 +1324,27 @@ func (a *MySQLAdapter) FindOneWithQuery(ctx context.Context, ref model.ModelRef,
 	return nil, fmt.Errorf("record '%v' not found", id)
 }
 
+// Parameters:
+//   - ctx (context.Context): Input value used by the operation.
+//   - ref (model.ModelRef): Input value used by the operation.
+//   - id (any): Input value used by the operation.
+//   - data (map[string]any): Input value used by the operation.
+//
+// Returns:
+//   - result1 (map[string]any): Returned value.
+//   - result2 (error): Returned value.
+//
+// Business Rules:
+//   - Follows the invariants documented by Update and its owning package.
+//
+// Side Effects:
+//   - May update receiver state, persistent storage, or configured external dependencies.
+//
+// Errors:
+//   - Returns validation, configuration, context, or underlying dependency errors.
+//
+// Note:
+//   - The context controls cancellation and request lifetime.
 func (a *MySQLAdapter) Update(ctx context.Context, ref model.ModelRef, id any, data map[string]any) (map[string]any, error) {
 	tableName := ref.StorageName
 	if tableName == "" {
@@ -912,6 +1379,27 @@ func (a *MySQLAdapter) Update(ctx context.Context, ref model.ModelRef, id any, d
 	return nil, fmt.Errorf("record '%v' not found", id)
 }
 
+// Parameters:
+//   - ctx (context.Context): Input value used by the operation.
+//   - ref (model.ModelRef): Input value used by the operation.
+//   - id (any): Input value used by the operation.
+//   - data (map[string]any): Input value used by the operation.
+//
+// Returns:
+//   - result1 (map[string]any): Returned value.
+//   - result2 (error): Returned value.
+//
+// Business Rules:
+//   - Follows the invariants documented by Patch and its owning package.
+//
+// Side Effects:
+//   - Does not intentionally mutate caller-owned input; configured dependencies may still be consulted.
+//
+// Errors:
+//   - Returns validation, configuration, context, or underlying dependency errors.
+//
+// Note:
+//   - The context controls cancellation and request lifetime.
 func (a *MySQLAdapter) Patch(ctx context.Context, ref model.ModelRef, id any, data map[string]any) (map[string]any, error) {
 	tableName := ref.StorageName
 	if tableName == "" {
@@ -943,6 +1431,25 @@ func (a *MySQLAdapter) Patch(ctx context.Context, ref model.ModelRef, id any, da
 	return nil, fmt.Errorf("record '%v' not found", id)
 }
 
+// Parameters:
+//   - ctx (context.Context): Input value used by the operation.
+//   - ref (model.ModelRef): Input value used by the operation.
+//   - id (any): Input value used by the operation.
+//
+// Returns:
+//   - result1 (error): Returned value.
+//
+// Business Rules:
+//   - Follows the invariants documented by Delete and its owning package.
+//
+// Side Effects:
+//   - May update receiver state, persistent storage, or configured external dependencies.
+//
+// Errors:
+//   - Returns validation, configuration, context, or underlying dependency errors.
+//
+// Note:
+//   - The context controls cancellation and request lifetime.
 func (a *MySQLAdapter) Delete(ctx context.Context, ref model.ModelRef, id any) error {
 	tableName := ref.StorageName
 	if tableName == "" {
@@ -974,6 +1481,25 @@ func (a *MySQLAdapter) Delete(ctx context.Context, ref model.ModelRef, id any) e
 	return nil
 }
 
+// Parameters:
+//   - ctx (context.Context): Input value used by the operation.
+//   - req (execution.ExecutionRequest): Input value used by the operation.
+//
+// Returns:
+//   - result1 (*execution.ExecutionResult): Returned value.
+//   - result2 (error): Returned value.
+//
+// Business Rules:
+//   - Follows the invariants documented by Execute and its owning package.
+//
+// Side Effects:
+//   - May update receiver state, persistent storage, or configured external dependencies.
+//
+// Errors:
+//   - Returns validation, configuration, context, or underlying dependency errors.
+//
+// Note:
+//   - The context controls cancellation and request lifetime.
 func (a *MySQLAdapter) Execute(ctx context.Context, req execution.ExecutionRequest) (*execution.ExecutionResult, error) {
 	var paramPlaceholders []string
 	var args []any
@@ -1026,6 +1552,24 @@ func (a *MySQLAdapter) Execute(ctx context.Context, req execution.ExecutionReque
 	}
 }
 
+// Parameters:
+//   - ctx (context.Context): Input value used by the operation.
+//
+// Returns:
+//   - result1 (adapter.Transaction): Returned value.
+//   - result2 (error): Returned value.
+//
+// Business Rules:
+//   - Follows the invariants documented by Begin and its owning package.
+//
+// Side Effects:
+//   - May update receiver state, persistent storage, or configured external dependencies.
+//
+// Errors:
+//   - Returns validation, configuration, context, or underlying dependency errors.
+//
+// Note:
+//   - The context controls cancellation and request lifetime.
 func (a *MySQLAdapter) Begin(ctx context.Context) (adapter.Transaction, error) {
 	db, _ := a.getDB(ctx)
 	if db != nil {
@@ -1043,38 +1587,217 @@ type MySQLTransaction struct {
 	tx      *sql.Tx
 }
 
+// Parameters:
+//   - ctx (context.Context): Input value used by the operation.
+//   - m (model.ModelRef): Input value used by the operation.
+//   - data (map[string]any): Input value used by the operation.
+//
+// Returns:
+//   - result1 (map[string]any): Returned value.
+//   - result2 (error): Returned value.
+//
+// Business Rules:
+//   - Follows the invariants documented by Create and its owning package.
+//
+// Side Effects:
+//   - May update receiver state, persistent storage, or configured external dependencies.
+//
+// Errors:
+//   - Returns validation, configuration, context, or underlying dependency errors.
+//
+// Note:
+//   - The context controls cancellation and request lifetime.
 func (t *MySQLTransaction) Create(ctx context.Context, m model.ModelRef, data map[string]any) (map[string]any, error) {
 	return t.adapter.Create(ctx, m, data)
 }
 
+// Parameters:
+//   - ctx (context.Context): Input value used by the operation.
+//   - m (model.ModelRef): Input value used by the operation.
+//   - q (query.Query): Input value used by the operation.
+//
+// Returns:
+//   - result1 ([]map[string]any): Returned value.
+//   - result2 (int64): Returned value.
+//   - result3 (error): Returned value.
+//
+// Business Rules:
+//   - Follows the invariants documented by Find and its owning package.
+//
+// Side Effects:
+//   - Does not intentionally mutate caller-owned input; configured dependencies may still be consulted.
+//
+// Errors:
+//   - Returns validation, configuration, context, or underlying dependency errors.
+//
+// Note:
+//   - The context controls cancellation and request lifetime.
 func (t *MySQLTransaction) Find(ctx context.Context, m model.ModelRef, q query.Query) ([]map[string]any, int64, error) {
 	return t.adapter.Find(ctx, m, q)
 }
 
+// Parameters:
+//   - ctx (context.Context): Input value used by the operation.
+//   - m (model.ModelRef): Input value used by the operation.
+//   - id (any): Input value used by the operation.
+//
+// Returns:
+//   - result1 (map[string]any): Returned value.
+//   - result2 (error): Returned value.
+//
+// Business Rules:
+//   - Follows the invariants documented by FindOne and its owning package.
+//
+// Side Effects:
+//   - Does not intentionally mutate caller-owned input; configured dependencies may still be consulted.
+//
+// Errors:
+//   - Returns validation, configuration, context, or underlying dependency errors.
+//
+// Note:
+//   - The context controls cancellation and request lifetime.
 func (t *MySQLTransaction) FindOne(ctx context.Context, m model.ModelRef, id any) (map[string]any, error) {
 	return t.adapter.FindOne(ctx, m, id)
 }
 
+// Parameters:
+//   - ctx (context.Context): Input value used by the operation.
+//   - m (model.ModelRef): Input value used by the operation.
+//   - id (any): Input value used by the operation.
+//   - q (query.Query): Input value used by the operation.
+//
+// Returns:
+//   - result1 (map[string]any): Returned value.
+//   - result2 (error): Returned value.
+//
+// Business Rules:
+//   - Follows the invariants documented by FindOneWithQuery and its owning package.
+//
+// Side Effects:
+//   - Does not intentionally mutate caller-owned input; configured dependencies may still be consulted.
+//
+// Errors:
+//   - Returns validation, configuration, context, or underlying dependency errors.
+//
+// Note:
+//   - The context controls cancellation and request lifetime.
 func (t *MySQLTransaction) FindOneWithQuery(ctx context.Context, m model.ModelRef, id any, q query.Query) (map[string]any, error) {
 	return t.adapter.FindOneWithQuery(ctx, m, id, q)
 }
 
+// Parameters:
+//   - ctx (context.Context): Input value used by the operation.
+//   - m (model.ModelRef): Input value used by the operation.
+//   - id (any): Input value used by the operation.
+//   - data (map[string]any): Input value used by the operation.
+//
+// Returns:
+//   - result1 (map[string]any): Returned value.
+//   - result2 (error): Returned value.
+//
+// Business Rules:
+//   - Follows the invariants documented by Update and its owning package.
+//
+// Side Effects:
+//   - May update receiver state, persistent storage, or configured external dependencies.
+//
+// Errors:
+//   - Returns validation, configuration, context, or underlying dependency errors.
+//
+// Note:
+//   - The context controls cancellation and request lifetime.
 func (t *MySQLTransaction) Update(ctx context.Context, m model.ModelRef, id any, data map[string]any) (map[string]any, error) {
 	return t.adapter.Update(ctx, m, id, data)
 }
 
+// Parameters:
+//   - ctx (context.Context): Input value used by the operation.
+//   - m (model.ModelRef): Input value used by the operation.
+//   - id (any): Input value used by the operation.
+//   - data (map[string]any): Input value used by the operation.
+//
+// Returns:
+//   - result1 (map[string]any): Returned value.
+//   - result2 (error): Returned value.
+//
+// Business Rules:
+//   - Follows the invariants documented by Patch and its owning package.
+//
+// Side Effects:
+//   - Does not intentionally mutate caller-owned input; configured dependencies may still be consulted.
+//
+// Errors:
+//   - Returns validation, configuration, context, or underlying dependency errors.
+//
+// Note:
+//   - The context controls cancellation and request lifetime.
 func (t *MySQLTransaction) Patch(ctx context.Context, m model.ModelRef, id any, data map[string]any) (map[string]any, error) {
 	return t.adapter.Patch(ctx, m, id, data)
 }
 
+// Parameters:
+//   - ctx (context.Context): Input value used by the operation.
+//   - m (model.ModelRef): Input value used by the operation.
+//   - id (any): Input value used by the operation.
+//
+// Returns:
+//   - result1 (error): Returned value.
+//
+// Business Rules:
+//   - Follows the invariants documented by Delete and its owning package.
+//
+// Side Effects:
+//   - May update receiver state, persistent storage, or configured external dependencies.
+//
+// Errors:
+//   - Returns validation, configuration, context, or underlying dependency errors.
+//
+// Note:
+//   - The context controls cancellation and request lifetime.
 func (t *MySQLTransaction) Delete(ctx context.Context, m model.ModelRef, id any) error {
 	return t.adapter.Delete(ctx, m, id)
 }
 
+// Parameters:
+//   - ctx (context.Context): Input value used by the operation.
+//   - req (execution.ExecutionRequest): Input value used by the operation.
+//
+// Returns:
+//   - result1 (*execution.ExecutionResult): Returned value.
+//   - result2 (error): Returned value.
+//
+// Business Rules:
+//   - Follows the invariants documented by Execute and its owning package.
+//
+// Side Effects:
+//   - May update receiver state, persistent storage, or configured external dependencies.
+//
+// Errors:
+//   - Returns validation, configuration, context, or underlying dependency errors.
+//
+// Note:
+//   - The context controls cancellation and request lifetime.
 func (t *MySQLTransaction) Execute(ctx context.Context, req execution.ExecutionRequest) (*execution.ExecutionResult, error) {
 	return t.adapter.Execute(ctx, req)
 }
 
+// Parameters:
+//   - ctx (context.Context): Input value used by the operation.
+//
+// Returns:
+//   - result1 (error): Returned value.
+//
+// Business Rules:
+//   - Follows the invariants documented by Commit and its owning package.
+//
+// Side Effects:
+//   - May update receiver state, persistent storage, or configured external dependencies.
+//
+// Errors:
+//   - Returns validation, configuration, context, or underlying dependency errors.
+//
+// Note:
+//   - The context controls cancellation and request lifetime.
 func (t *MySQLTransaction) Commit(ctx context.Context) error {
 	if t.tx != nil {
 		return t.tx.Commit()
@@ -1082,6 +1805,23 @@ func (t *MySQLTransaction) Commit(ctx context.Context) error {
 	return nil
 }
 
+// Parameters:
+//   - ctx (context.Context): Input value used by the operation.
+//
+// Returns:
+//   - result1 (error): Returned value.
+//
+// Business Rules:
+//   - Follows the invariants documented by Rollback and its owning package.
+//
+// Side Effects:
+//   - May update receiver state, persistent storage, or configured external dependencies.
+//
+// Errors:
+//   - Returns validation, configuration, context, or underlying dependency errors.
+//
+// Note:
+//   - The context controls cancellation and request lifetime.
 func (t *MySQLTransaction) Rollback(ctx context.Context) error {
 	if t.tx != nil {
 		return t.tx.Rollback()

@@ -31,6 +31,26 @@ type QueryBuilder struct{}
 //
 // When can it be used:
 //   - When translating a generic query.Query into MySQL SELECT SQL.
+//
+// Parameters:
+//   - table (string): Input value used by the operation.
+//   - q (query.Query): Input value used by the operation.
+//
+// Returns:
+//   - result1 (string): Returned value.
+//   - result2 ([]any): Returned value.
+//
+// Business Rules:
+//   - Follows the invariants documented by BuildSelect and its owning package.
+//
+// Side Effects:
+//   - Does not intentionally mutate caller-owned input; configured dependencies may still be consulted.
+//
+// Errors:
+//   - This function does not return an error.
+//
+// Note:
+//   - Callers should preserve the documented ownership and lifecycle of supplied values.
 func (b *QueryBuilder) BuildSelect(table string, q query.Query) (string, []any) {
 	var args []any
 
@@ -73,6 +93,25 @@ func (b *QueryBuilder) BuildSelect(table string, q query.Query) (string, []any) 
 	return sql + ";", args
 }
 
+// Parameters:
+//   - table (string): Input value used by the operation.
+//   - q (query.Query): Input value used by the operation.
+//
+// Returns:
+//   - result1 (string): Returned value.
+//   - result2 ([]any): Returned value.
+//
+// Business Rules:
+//   - Follows the invariants documented by BuildCount and its owning package.
+//
+// Side Effects:
+//   - Does not intentionally mutate caller-owned input; configured dependencies may still be consulted.
+//
+// Errors:
+//   - This function does not return an error.
+//
+// Note:
+//   - Callers should preserve the documented ownership and lifecycle of supplied values.
 func (b *QueryBuilder) BuildCount(table string, q query.Query) (string, []any) {
 	q.Fields = nil
 	q.ExcludedColumns = nil
@@ -95,6 +134,26 @@ func (b *QueryBuilder) BuildCount(table string, q query.Query) (string, []any) {
 //
 // When can it be used:
 //   - When inserting a new record into a MySQL table.
+//
+// Parameters:
+//   - table (string): Input value used by the operation.
+//   - data (map[string]any): Input value used by the operation.
+//
+// Returns:
+//   - result1 (string): Returned value.
+//   - result2 ([]any): Returned value.
+//
+// Business Rules:
+//   - Follows the invariants documented by BuildInsert and its owning package.
+//
+// Side Effects:
+//   - Does not intentionally mutate caller-owned input; configured dependencies may still be consulted.
+//
+// Errors:
+//   - This function does not return an error.
+//
+// Note:
+//   - Callers should preserve the documented ownership and lifecycle of supplied values.
 func (b *QueryBuilder) BuildInsert(table string, data map[string]any) (string, []any) {
 	var cols []string
 	var placeholders []string
@@ -126,6 +185,27 @@ func (b *QueryBuilder) BuildInsert(table string, data map[string]any) (string, [
 //
 // When can it be used:
 //   - When updating column values on an existing record.
+//
+// Parameters:
+//   - table (string): Input value used by the operation.
+//   - id (any): Input value used by the operation.
+//   - data (map[string]any): Input value used by the operation.
+//
+// Returns:
+//   - result1 (string): Returned value.
+//   - result2 ([]any): Returned value.
+//
+// Business Rules:
+//   - Follows the invariants documented by BuildUpdate and its owning package.
+//
+// Side Effects:
+//   - Does not intentionally mutate caller-owned input; configured dependencies may still be consulted.
+//
+// Errors:
+//   - This function does not return an error.
+//
+// Note:
+//   - Callers should preserve the documented ownership and lifecycle of supplied values.
 func (b *QueryBuilder) BuildUpdate(table string, id any, data map[string]any) (string, []any) {
 	var setClauses []string
 	var args []any
@@ -159,6 +239,26 @@ func (b *QueryBuilder) BuildUpdate(table string, id any, data map[string]any) (s
 //
 // When can it be used:
 //   - When removing a record by ID.
+//
+// Parameters:
+//   - table (string): Input value used by the operation.
+//   - id (any): Input value used by the operation.
+//
+// Returns:
+//   - result1 (string): Returned value.
+//   - result2 ([]any): Returned value.
+//
+// Business Rules:
+//   - Follows the invariants documented by BuildDelete and its owning package.
+//
+// Side Effects:
+//   - Does not intentionally mutate caller-owned input; configured dependencies may still be consulted.
+//
+// Errors:
+//   - This function does not return an error.
+//
+// Note:
+//   - Callers should preserve the documented ownership and lifecycle of supplied values.
 func (b *QueryBuilder) BuildDelete(table string, id any) (string, []any) {
 	sql := fmt.Sprintf("DELETE FROM %s WHERE `id` = ?;", quoteIdent(table))
 	return sql, []any{id}

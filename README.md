@@ -58,6 +58,10 @@ Compiles Query AST into MySQL-compatible SQL queries (`SELECT ... FROM \`table\`
 
 ## 🚀 Usage Example
 
+### Selecting fields inside dataset relations
+
+`OBJECT` joins compile to `JSON_OBJECT`, while `MANY`/`JSON_ARRAY` joins compile to a correlated `JSON_ARRAYAGG`. In both cases, only relation fields present in `selected_list` are included in the nested JSON value. `NONE` continues to return the selected fields as flat columns.
+
 ```go
 package main
 

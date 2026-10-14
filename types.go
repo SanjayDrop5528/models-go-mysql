@@ -3,9 +3,10 @@
 //
 // File: types.go
 // Usage:
-//   This file defines the type conversion logic from core engine generic DataType enums
-//   (model.TypeString, model.TypeInt, model.TypeDecimal, model.TypeJSON, etc.) to
-//   MySQL-native SQL data types (VARCHAR, INT, DECIMAL, DATETIME, TINYINT(1), BLOB, etc.).
+//
+//	This file defines the type conversion logic from core engine generic DataType enums
+//	(model.TypeString, model.TypeInt, model.TypeDecimal, model.TypeJSON, etc.) to
+//	MySQL-native SQL data types (VARCHAR, INT, DECIMAL, DATETIME, TINYINT(1), BLOB, etc.).
 package mysql
 
 import (
@@ -18,13 +19,32 @@ import (
 // ToMySQLType maps core generic DataType to MySQL SQL types.
 //
 // Purpose:
-//   Translates an engine schema attribute into an idiomatic MySQL column data type string.
+//
+//	Translates an engine schema attribute into an idiomatic MySQL column data type string.
 //
 // Where it is used:
 //   - Used by DDLGenerator when constructing CREATE TABLE and ADD COLUMN statements.
 //
 // When can it be used:
 //   - When mapping generic models to MySQL table columns.
+//
+// Parameters:
+//   - attr (schema.SchemaAttribute): Input value used by the operation.
+//
+// Returns:
+//   - result1 (string): Returned value.
+//
+// Business Rules:
+//   - Follows the invariants documented by ToMySQLType and its owning package.
+//
+// Side Effects:
+//   - Does not intentionally mutate caller-owned input; configured dependencies may still be consulted.
+//
+// Errors:
+//   - This function does not return an error.
+//
+// Note:
+//   - Callers should preserve the documented ownership and lifecycle of supplied values.
 func ToMySQLType(attr schema.SchemaAttribute) string {
 	switch attr.Type {
 	case model.TypeString:

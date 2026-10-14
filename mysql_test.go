@@ -27,6 +27,37 @@ func TestBuildCountRemovesPagination(t *testing.T) {
 	}
 }
 
+func TestMySQLDataSetCompiler_NestedRelationsUseSelectedFields(t *testing.T) {
+	ds := &domain.DataSet{
+		BaseCollection: domain.BaseCollection{Collection: "orders"},
+		JoinCollections: []domain.JoinCollection{
+			{FromCollection: "orders", FromCollectionField: "customer_id", ToCollection: "customers", ToCollectionField: "id", NamedAs: "customer", Cardinality: "ONE", OutputFormat: "OBJECT"},
+			{FromCollection: "orders", FromCollectionField: "id", ToCollection: "items", ToCollectionField: "order_id", NamedAs: "items", Cardinality: "MANY", OutputFormat: "JSON_ARRAY"},
+		},
+		SelectedList: []domain.SelectedField{
+			{Field: "orders.id", HeaderName: "id"},
+			{Field: "customer.name", HeaderName: "customer_name"},
+			{Field: "items.sku", HeaderName: "items_sku"},
+		},
+	}
+	ast, err := planner.NewPlanner(nil).BuildAST(context.Background(), ds)
+	if err != nil {
+		t.Fatal(err)
+	}
+	compiled, err := mysql.NewMySQLDataSetCompiler().Compile(context.Background(), ast, ds)
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, want := range []string{"JSON_OBJECT('name', `customer`.`name`)", "JSON_OBJECT('sku', `items_many`.`sku`)"} {
+		if !strings.Contains(compiled.ExecutableQuery, want) {
+			t.Fatalf("expected selected nested field %s, got: %s", want, compiled.ExecutableQuery)
+		}
+	}
+	if strings.Contains(compiled.ExecutableQuery, "LEFT JOIN `items`") {
+		t.Fatalf("array relation must use a correlated JSON aggregation: %s", compiled.ExecutableQuery)
+	}
+}
+
 func TestMySQL_DDL_AddColumn(t *testing.T) {
 	gen := mysql.NewDDLGenerator()
 
