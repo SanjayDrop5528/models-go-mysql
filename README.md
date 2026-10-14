@@ -4,6 +4,29 @@
 
 `models-go-mysql` provides the MySQL database adapter for `models-go-engine`. It supports MySQL 8.0 schema introspection, migration DDL generation (`ALTER TABLE`, `MODIFY COLUMN`), SQL dataset query compilation, and MySQL Stored Procedure DDL generation (`sp_...`).
 
+## Prerequisites
+
+- Go 1.20 or newer.
+- MySQL 8.0 or newer.
+- A MySQL DSN and a user with schema, query, and migration permissions as required by the operation.
+
+## Usage Steps
+
+1. Configure a MySQL DSN, for example `root:password@tcp(127.0.0.1:3306)/app_db?parseTime=true`.
+2. Create the adapter with `mysql.NewMySQLAdapter(dsn)`.
+3. Optionally restrict databases with `WithDatabases(...)`.
+4. Call `Connect(ctx)` and check the returned error.
+5. Register the adapter and `MySQLDataSetCompiler` with the engine.
+6. Run CRUD, dataset preview/execute, or schema migration operations.
+7. Run `go test ./...` to verify the adapter.
+
+## Core Functionality
+
+- MySQL connection and execution through the shared adapter contract.
+- Schema introspection and transactional migration DDL.
+- Query AST compilation to MySQL SQL.
+- Stored procedure generation for saved datasets.
+
 ---
 
 ## 🛠️ Key Exported Functions & Methods Reference
