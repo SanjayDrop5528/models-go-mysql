@@ -135,9 +135,11 @@ func (c *MySQLDataSetCompiler) buildSelectSQL(ast *planner.QueryAST, parameteriz
 		if isNestedJoinProjection(ast, p) {
 			continue
 		}
-		colExpr := fmt.Sprintf("`%s`.`%s`", p.SourceTable, p.SourceField)
+		colExpr := formatMySQLColumnExpr(p.SourceTable, p.SourceField)
 		if p.Alias != "" && p.Alias != p.SourceField {
 			colExpr += fmt.Sprintf(" AS `%s`", p.Alias)
+		} else if strings.Contains(p.SourceField, ".") {
+			colExpr += fmt.Sprintf(" AS `%s`", p.SourceField)
 		}
 		selectCols = append(selectCols, colExpr)
 	}
@@ -321,6 +323,16 @@ func mysqlRelationProjections(ast *planner.QueryAST, join planner.ASTJoin) []pla
 	return fields
 }
 
+// formatMySQLColumnExpr formats a column expression, extracting nested json paths with JSON_UNQUOTE(JSON_EXTRACT(...)) when a dot is present.
+func formatMySQLColumnExpr(table, field string) string {
+	if !strings.Contains(field, ".") {
+		return fmt.Sprintf("`%s`.`%s`", table, field)
+	}
+	parts := strings.Split(field, ".")
+	jsonPath := "$." + strings.Join(parts[1:], ".")
+	return fmt.Sprintf("JSON_UNQUOTE(JSON_EXTRACT(`%s`.`%s`, '%s'))", table, parts[0], jsonPath)
+}
+
 // mysqlJSONObject builds a JSON object containing only selected relation fields.
 func mysqlJSONObject(join planner.ASTJoin, tableAlias string, fields []planner.ASTProjection) string {
 	if len(fields) == 0 {
@@ -329,7 +341,8 @@ func mysqlJSONObject(join planner.ASTJoin, tableAlias string, fields []planner.A
 	args := make([]string, 0, len(fields)*2)
 	for _, field := range fields {
 		key := strings.ReplaceAll(mysqlProjectionKey(join, field), "'", "''")
-		args = append(args, fmt.Sprintf("'%s'", key), fmt.Sprintf("`%s`.`%s`", tableAlias, field.SourceField))
+		colVal := formatMySQLColumnExpr(tableAlias, field.SourceField)
+		args = append(args, fmt.Sprintf("'%s'", key), colVal)
 	}
 	return "JSON_OBJECT(" + strings.Join(args, ", ") + ")"
 }
